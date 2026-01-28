@@ -144,7 +144,7 @@ public static class WorldBuilder
             }
         };
 
-        state.LastMessage = "You wake up in a dark alley. Your head pounds. You don't remember how you got here.";
+        state.LastMessage = "You wake up in a dark alley. Your head pounds. You don't remember how you got here. A flickering neon sign above reads 'Welcome to Kreznik' - but that doesn't help. Everyone knows Kreznik.";
 
         return state;
     }

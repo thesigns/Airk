@@ -8,7 +8,7 @@ public sealed class LookCommand : ICommand
     {
         ["credstick"] = "A thin plastic stick with a dim LED. Contains 5 credits.",
         ["datapad"] = "A cracked datapad. The screen flickers with corrupted data about someone named 'Kira'.",
-        ["transit-map"] = "A worn paper map of the Night City metro system. Lines crisscross in a confusing web.",
+        ["transit-map"] = "A worn paper map of the Kreznik metro system. Lines crisscross in a confusing web.",
         ["package"] = "A small sealed package wrapped in black plastic. Chrome told you not to open it."
     };
 
