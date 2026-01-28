@@ -140,7 +140,8 @@ Program.cs                 Entry point, mode detection
 └── UI/
     ├── IGameUI.cs         Interface for input/output
     ├── InteractiveUI.cs   Console REPL mode
-    └── BatchUI.cs         Single-turn JSON mode
+    ├── BatchUI.cs         Single-turn JSON mode
+    └── TextFormatter.cs   Word wrapping utility (80 columns)
 ```
 
 ### Data Flow
@@ -180,6 +181,7 @@ Program.cs                 Entry point, mode detection
 - **Turn counter**: Only increments on successful commands (failed commands don't cost a turn)
 - **CommandResult.Success**: Determines if turn increments and can be used for future mechanics
 - **Dialogue priority**: First matching dialogue line is used (order matters in WorldBuilder)
+- **Text wrapping**: `TextFormatter.WordWrap()` wraps text at 80 columns, breaking only at spaces; preserves existing newlines; handles words longer than 80 chars by forced break
 
 ### Known Gaps (for future iterations)
 
