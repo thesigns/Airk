@@ -1,6 +1,6 @@
 # Airk
 
-A terminal-based text adventure game set in a cyberpunk world. Written in C# targeting .NET 10.0.
+A terminal-based text adventure game set in a cyberpunk world.
 
 This project is an experiment in AI-driven game development.
 
