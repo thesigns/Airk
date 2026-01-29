@@ -9,14 +9,16 @@ with limited human guidance. Claude Code designs the systems, creates the narrat
 
 ## About
 
-Airk is an interactive fiction game where you explore the rain-soaked streets of Kreznik, a dystopian city of neon lights and corporate shadows. Navigate through dark alleys, seedy bars, and metro stations while interacting with NPCs and completing quests.
+Airk is an interactive fiction game where you explore the rain-soaked streets of Kreznik, a dystopian city of neon lights and corporate shadows. Navigate dark alleys, seedy bars, underground clinics, and metro tunnels while unraveling a conspiracy involving mass memory wiping, a shadowy research project called Icarus, and your own forgotten identity.
 
 ## Features
 
 - Classic text adventure gameplay with parser-based commands
 - Dual-mode execution: interactive REPL or single-turn batch mode (JSON output)
-- NPC dialogue system with conditional responses
-- Inventory and economy system
+- NPC dialogue system with selectable choices and conditional responses
+- Branching quest outcomes with narrative consequences
+- Multi-sector world connected by a metro travel system
+- Inventory, economy, and readable environment fixtures
 - Persistent game state saved between sessions
 
 ## Requirements
@@ -43,12 +45,20 @@ dotnet run --project Airk/Airk.csproj -- new
 
 | Command | Description |
 |---------|-------------|
-| `look` | Examine your surroundings |
+| `look` | Examine your surroundings or an item/NPC |
+| `look <direction>` | Preview what lies in a direction |
 | `go <direction>` | Move (north/south/east/west or n/s/e/w) |
+| `exits` | List all exits with short descriptions |
 | `take <item>` | Pick up an item |
 | `drop <item>` | Drop an item |
 | `inventory` | List carried items |
-| `talk <person>` | Talk to an NPC |
+| `talk <person>` | Talk to an NPC (select dialogue choices with number) |
+| `use <item>` | Use an item from your inventory |
+| `read` | Read a sign or notice in the room |
+| `open <item>` | Open or unwrap something |
+| `give <item> to <person>` | Give an item to an NPC |
+| `pay` | Pay for services (e.g. metro fare) |
+| `travel <code>` | Ride the metro to another station |
 | `help` | Show available commands |
 | `quit` | Exit the game |
 
@@ -63,23 +73,20 @@ help. Everyone knows Kreznik.
 
 Rain drips from rusted fire escapes above. Neon signs flicker through the smog,
 casting red and blue shadows on the wet pavement. A dumpster overflows with
-discarded tech. To the north, a heavy steel door leads into a building. The
-alley continues east toward the main street.
+discarded tech.
 
 You see: credstick, datapad
-
 Exits: north, east
+
 [Turn 1 | Health: 100 | Credits: 0]
 
 > take credstick
-You pick up the credstick. It dissolves in your hand, transferring 5 credits.
+You pick up the credstick. It transfers 5 credits to your account before
+dissolving.
 
-> go north
-You head north.
-
-=== Rusty Bolt Bar ===
-
-Synth music pulses from cracked speakers...
+> exits
+  north: A dimly lit synth bar behind a heavy steel door.
+  east: A wide boulevard crowded with holographic ads and buzzing drones.
 ```
 
 ## License
