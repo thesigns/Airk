@@ -8,6 +8,7 @@ public sealed class Room
     public required string Description { get; init; }
     public Dictionary<string, string> Exits { get; init; } = new();
     public Dictionary<string, ExitGate> GatedExits { get; init; } = new();
+    public Dictionary<string, int> ExitCosts { get; init; } = new();
     public List<string> Items { get; init; } = new();
     public Dictionary<string, string> Readables { get; init; } = new();
     public bool Visited { get; set; }

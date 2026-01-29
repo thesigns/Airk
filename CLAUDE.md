@@ -102,7 +102,7 @@ It is a **technical memory** for future iterations.
 
 ### Current State
 
-10-room, 2-sector cyberpunk world connected by metro system. 2 quest chains (Chrome's package with branching outcome, Kira's memory restoration with deep scan), cross-quest connections, Icarus storyline, 8 NPCs, dialogue choices, metro travel, readables, and 14 commands. Fully playable.
+10-room, 2-sector cyberpunk world connected by metro system. 2 quest chains (Chrome's package with branching outcome, Kira's memory restoration with deep scan), cross-quest connections, Icarus storyline, 8 NPCs, dialogue choices, metro travel with automatic entry fee, readables, and 14 commands. Fully playable.
 
 ### Key Constraints from BOOTSTRAP.md
 
@@ -121,7 +121,7 @@ Program.cs                 Entry point, mode detection
 ├── Commands/
 │   ├── ICommand.cs        Interface + CommandResult record
 │   ├── LookCommand.cs     Examine room/items/NPCs
-│   ├── GoCommand.cs       Movement + gated exit checks
+│   ├── GoCommand.cs       Movement + gated exits + exit costs
 │   ├── TakeCommand.cs     Pick up items
 │   ├── DropCommand.cs     Drop items
 │   ├── InventoryCommand.cs List carried items
@@ -130,7 +130,6 @@ Program.cs                 Entry point, mode detection
 │   ├── ReadCommand.cs     Read signs/notices in rooms (regulamin)
 │   ├── OpenCommand.cs     Open/unwrap items (package)
 │   ├── GiveCommand.cs     Give items to NPCs (neural-interface to Kira)
-│   ├── PayCommand.cs      Pay for services (metro fare)
 │   ├── TravelCommand.cs   Metro travel between stations
 │   ├── HelpCommand.cs     Show commands
 │   └── QuitCommand.cs     Exit game
@@ -139,7 +138,7 @@ Program.cs                 Entry point, mode detection
 │   ├── PlayerView.cs      Projected player-visible state (output as JSON)
 │   └── WorldBuilder.cs    Creates initial world with NPCs and metro network
 ├── World/
-│   ├── Room.cs            Room + ExitGate + Readables
+│   ├── Room.cs            Room + ExitGate + ExitCosts + Readables
 │   ├── Npc.cs             NPC + DialogueLine structures
 │   └── MetroStation.cs    Metro station data (Code, Name, PlatformRoomId, Line)
 ├── Persistence/
@@ -168,7 +167,7 @@ Program.cs                 Entry point, mode detection
 **Rooms** (10): alley (start), bar, street, metro, platform, clinic, market, outerrim-platform, facility-gate, maintenance
 **Items** (7): credstick, datapad, transit-map, package, cortex-chip, neural-interface, access-card
 **NPCs** (8): Chrome (bar), Security Guard (metro), Noodle Vendor (street), Kira (clinic), Scavenger (market), Drifter (platform), Echo (maintenance), Facility Guard (facility-gate)
-**Commands** (14): look, go, take, drop, inventory, talk, use, read, open, give, pay, travel, help, quit
+**Commands** (14): look, go, take, drop, inventory, talk, use, read, open, give, travel, exits, help, quit
 
 ### World Map
 
@@ -176,7 +175,7 @@ Program.cs                 Entry point, mode detection
 SECTOR 7 (Station: s7)
                     [market]
                        |
-[alley] --east-- [street] --north-- [metro] --north(gated)--> [platform] --east-- [clinic]
+[alley] --east-- [street] --north(5cr)--> [metro] --north-- [platform] --east-- [clinic]
    |                                                               |
   north                                                     travel (Red Line)
    |                                                               |
@@ -190,11 +189,11 @@ OUTER RIM (Station: rim)                                           |
                                                          [facility-gate]
 ```
 
-### Gated Exits
+### Gated Exits and Exit Costs
 
-`Room.GatedExits` maps a direction to an `ExitGate` with `RequiresFlag` and `FailureMessage`. `GoCommand` checks gates after confirming an exit exists. If the flag is missing, the failure message is returned and movement is blocked.
+`Room.GatedExits` maps a direction to an `ExitGate` with `RequiresFlag` and `FailureMessage`. `GoCommand` checks gates after confirming an exit exists. If the flag is missing, the failure message is returned and movement is blocked. Currently unused (reserved for future content).
 
-Currently used: metro north → platform (requires `metro_paid` flag, set by `PayCommand`).
+`Room.ExitCosts` maps a direction to a credit cost (int). `GoCommand` checks costs after gates. If the player has insufficient credits, movement is blocked with a message. Otherwise, the cost is deducted automatically and the player is informed. Currently used: street north → metro (5 credits).
 
 ### Metro System
 
@@ -204,9 +203,9 @@ Currently used: metro north → platform (requires `metro_paid` flag, set by `Pa
 
 **Active stations**: `s7` (Sector 7 Platform, Red Line), `rim` (Outer Rim, Red Line). Blue Line service suspended (future).
 
-**Fare model**: One-time day pass via `PayCommand` at metro entrance. No re-payment for travel.
+**Fare model**: Automatic 5-credit deduction when entering metro from street (via `Room.ExitCosts`). Exit from metro to street is free. Internal metro transfers between platforms are free. No `pay` command — fare is automatic on movement.
 
-**Regulamin**: Readable sign at all metro platforms — in-world tutorial explaining travel system, station codes, fare rules. Read with `read regulamin`.
+**Regulamin**: Readable sign at street (before entry) and all metro platforms — in-world tutorial explaining travel system, station codes, entry fee. Read with `read regulamin`.
 
 ### Readables
 
@@ -238,8 +237,8 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
    - **Sealed**: Guard takes it normally → sets `job_complete`
    - **Opened**: Guard notices tampering → sets `job_complete_tampered`
 5. Return to Chrome:
-   - **Sealed**: Receive 10 credits
-   - **Opened**: Receive 5 credits (reduced for disobedience)
+   - **Sealed**: Receive 50 credits
+   - **Opened**: Receive 0 credits (punishment for disobedience)
 6. Both paths set `job_paid` flag, enabling Kira quest progression
 7. Post-quest: new choices appear ("Ask about the datapad" if carrying datapad)
 8. **Tampered path only**: "Ask about the neural suppressor" choice — Chrome confesses to running NS-7s for months
@@ -247,8 +246,8 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 **Quest 2: Kira's Memory Restoration**
 1. Take datapad in alley → `use datapad` → reveals Kira/clinic clue (sets `read_datapad`)
 2. (Optional) Talk to Noodle Vendor → choices: "Ask about Kira" / "Ask about rumors"
-3. Pay 10 credits at metro → `pay` command sets `metro_paid` flag
-4. Go north through turnstile → platform → east to clinic
+3. Enter metro from street (5 credits auto-deducted at turnstile)
+4. Go north to platform → east to clinic
 5. Talk to Kira → intro (auto) → choices: "Show the datapad" / "Ask about Kira" / "Ask about NeoCortex"
 6. (If opened package) "Tell her about the neural suppressor" — Kira connects NS-7 to player's wipe
 7. Show datapad → Kira identifies memory extraction log → quest accepted (auto)
@@ -256,7 +255,7 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 9. Return to clinic → talk Kira → memory restoration scene (removes chip, reveals Project Icarus)
 10. `give neural-interface to kira` → deep scan: reveals player was a NeoCortex researcher on Project Icarus who was wiped for trying to expose mass neural suppression (sets `deep_scan_done`)
 
-**Credit economy**: credstick +5, Chrome job +10 (sealed) or +5 (opened) → metro fare -10 → 5 or 0 remaining. Chrome quest must complete before affording metro. Opening the package is a choice with economic consequences.
+**Credit economy**: credstick +15, Chrome job +50 (sealed) or +0 (opened), metro entry -5 per visit. Opening the package is a choice with major economic consequences (65 vs 15 total credits). Metro is affordable from the start (credstick alone covers 3 entries).
 
 ### Design Decisions
 
@@ -264,11 +263,11 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 - **CommandResult.Success**: Determines if turn increments and can be used for future mechanics
 - **Dialogue priority**: Story beats (auto, non-repeatable) → choices (labeled) → fallbacks (auto, repeatable)
 - **Text wrapping**: `TextFormatter.WordWrap()` wraps text at 80 columns, breaking only at spaces; preserves existing newlines; handles words longer than 80 chars by forced break
-- **Gated exits**: Separate `GatedExits` dictionary on Room avoids changing the `Exits` type; backward-compatible with old saves (empty dict by default)
+- **Gated exits**: Separate `GatedExits` dictionary on Room avoids changing the `Exits` type; backward-compatible with old saves (empty dict by default). Currently unused (reserved for future content).
+- **Exit costs**: `ExitCosts` dictionary on Room maps directions to credit costs. `GoCommand` checks after gates, deducts automatically, or blocks if insufficient. Used for metro entry fee (street → metro, 5 credits).
 - **UseCommand**: Hardcoded item logic, matching pattern of TakeCommand (credstick special case) and LookCommand (item descriptions dict). `use package` hints toward `open package`.
 - **OpenCommand**: Separate from `use` — handles destructive/irreversible item actions (unwrapping package). Aliases: `unwrap`. Sets `opened_package` flag which branches guard/Chrome dialogue.
 - **GiveCommand**: `give <item> to <npc>` syntax. Parses with `LastIndexOf(" to ")`. NPC-specific reactions via switch expression. Default: "doesn't seem to want it". Currently handles: neural-interface → Kira (deep scan after memory restoration).
-- **PayCommand**: Room-specific; currently only metro. Extensible via room ID switch.
 - **TravelCommand**: Data-driven via `GameState.MetroStations`. Same-line only restriction allows future hub-transfer mechanic. Aliases: `ride`. `ShowDescription: true` on arrival.
 - **ReadCommand**: Checks `Room.Readables` first, inventory items second (delegates to `UseCommand`). Auto-reads single readable when no args.
 - **Readables**: Separate from `Items` — fixtures that can't be taken. Used for the regulamin sign. Keys are case-sensitive lowercase.
@@ -286,4 +285,4 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 - Cross-line metro transfers not implemented (future hub station)
 - No equipment/wearable system
 - No save slot or multiple saves
-- No way to earn additional credits after Chrome's one-time job
+- No way to earn additional credits after Chrome's one-time job (sealed path gives 65 total, opened gives 15)

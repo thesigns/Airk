@@ -30,8 +30,8 @@ public sealed class TakeCommand : ICommand
         if (itemName == "credstick")
         {
             state.Inventory.Remove(itemName);
-            state.Credits += 5;
-            return new CommandResult(true, "You pick up the credstick. It transfers 5 credits to your account before dissolving.");
+            state.Credits += 15;
+            return new CommandResult(true, "You pick up the credstick. It transfers 15 credits to your account before dissolving.");
         }
 
         return new CommandResult(true, $"You take the {itemName}.");

@@ -42,10 +42,31 @@ public sealed class GoCommand : ICommand
             return new CommandResult(false, gate.FailureMessage);
         }
 
+        // Check exit costs (e.g. metro entry fee)
+        var exitCost = 0;
+        if (room.ExitCosts.TryGetValue(direction, out var cost))
+        {
+            exitCost = cost;
+        }
+
+        if (exitCost > 0)
+        {
+            if (state.Credits < exitCost)
+            {
+                return new CommandResult(false,
+                    $"The turnstile flashes red. Insufficient credits. Entry fee: {exitCost} credits. You have {state.Credits} credits.");
+            }
+            state.Credits -= exitCost;
+        }
+
         state.CurrentRoomId = targetRoomId;
         var newRoom = state.Rooms[targetRoomId];
         newRoom.Visited = true;
 
-        return new CommandResult(true, $"You go {direction}.", ShowDescription: true);
+        var message = exitCost > 0
+            ? $"The turnstile deducts {exitCost} credits as you pass through.\n\nYou go {direction}."
+            : $"You go {direction}.";
+
+        return new CommandResult(true, message, ShowDescription: true);
     }
 }

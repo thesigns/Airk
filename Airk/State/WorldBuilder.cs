@@ -7,8 +7,8 @@ public static class WorldBuilder
     private const string RegulaminText =
         "=== KREZNIK METRO TRANSIT AUTHORITY ===\n" +
         "REGULATION NOTICE\n\n" +
-        "1. Fare is a one-time day pass paid at the entrance turnstile.\n" +
-        "   Re-entry is permitted.\n\n" +
+        "1. Entry fee: 5 credits, deducted automatically at the\n" +
+        "   turnstile. Re-entry is permitted within the same day.\n\n" +
         "2. To travel between stations, use: travel <station-code>\n\n" +
         "3. Active stations:\n" +
         "   RED LINE: Sector 7 [s7] --- Outer Rim [rim]\n" +
@@ -53,12 +53,21 @@ public static class WorldBuilder
             Id = "street",
             Name = "Neon Boulevard",
             ShortDescription = "A wide boulevard crowded with holographic ads and buzzing drones.",
-            Description = "Holographic advertisements tower above, selling everything from neural upgrades to synthetic meals. Drones buzz overhead, their cameras scanning the crowds. A vendor cart sells hot noodles, steam rising into the polluted air. The alley is to the west, the metro station is to the north, and a night market sprawls to the east.",
+            Description = "Holographic advertisements tower above, selling everything from neural upgrades to synthetic meals. Drones buzz overhead, their cameras scanning the crowds. A vendor cart sells hot noodles, steam rising into the polluted air. A regulation notice is posted by the metro turnstile to the north. The alley is to the west and a night market sprawls to the east.",
             Exits = new Dictionary<string, string>
             {
                 ["west"] = "alley",
                 ["north"] = "metro",
                 ["east"] = "market"
+            },
+            ExitCosts = new Dictionary<string, int>
+            {
+                ["north"] = 5
+            },
+            Readables = new Dictionary<string, string>
+            {
+                ["regulamin"] = RegulaminText,
+                ["regulations"] = RegulaminText
             },
             Items = new List<string>()
         };
@@ -68,19 +77,11 @@ public static class WorldBuilder
             Id = "metro",
             Name = "Metro Station Entrance",
             ShortDescription = "A metro station entrance with turnstiles and a security booth.",
-            Description = "Turnstiles block access to the underground. A bored security guard watches from behind bulletproof glass. A sign reads 'Fare: 10 credits'. The boulevard is to the south and the platform is beyond the turnstiles to the north.",
+            Description = "Past the turnstile, you stand in the metro station entrance hall. A bored security guard watches from behind bulletproof glass. The boulevard is back to the south and the platform is to the north.",
             Exits = new Dictionary<string, string>
             {
                 ["south"] = "street",
                 ["north"] = "platform"
-            },
-            GatedExits = new Dictionary<string, ExitGate>
-            {
-                ["north"] = new ExitGate
-                {
-                    RequiresFlag = "metro_paid",
-                    FailureMessage = "The turnstile blocks your way. You need to pay the 10 credit fare first."
-                }
             },
             Items = new List<string> { "transit-map" }
         };
@@ -152,7 +153,7 @@ public static class WorldBuilder
                     Id = "chrome_job_offer",
                     Label = "Ask about work",
                     RequiresFlag = "met_chrome",
-                    Text = "I could use someone to run a package to the metro station. 10 credits. Interested?",
+                    Text = "I could use someone to run a package to the metro station. 50 credits. Interested?",
                     SetsFlag = "job_offered",
                     Repeatable = false
                 },
@@ -177,8 +178,7 @@ public static class WorldBuilder
                 {
                     Id = "chrome_job_done_tampered",
                     RequiresFlag = "job_complete_tampered",
-                    Text = "The guard told me you opened the package. I said don't open it. Here's 5 credits. Consider the rest a lesson in following instructions.",
-                    GivesCredits = 5,
+                    Text = "The guard told me you opened the package. I said don't open it. You get nothing. Consider it a lesson in following instructions.",
                     SetsFlag = "job_paid",
                     Repeatable = false
                 },
@@ -186,8 +186,8 @@ public static class WorldBuilder
                 {
                     Id = "chrome_job_done",
                     RequiresFlag = "job_complete",
-                    Text = "Nice work. Here's your 10 credits. Maybe I'll have more work for you later.",
-                    GivesCredits = 10,
+                    Text = "Nice work. Here's your 50 credits. Maybe I'll have more work for you later.",
+                    GivesCredits = 50,
                     SetsFlag = "job_paid",
                     Repeatable = false
                 },
@@ -256,8 +256,8 @@ public static class WorldBuilder
                 },
                 new DialogueLine
                 {
-                    Id = "guard_no_money",
-                    Text = "Fare's 10 credits. No exceptions.",
+                    Id = "guard_idle",
+                    Text = "Move along. Platform's to the north.",
                     Repeatable = true
                 }
             }

@@ -23,7 +23,6 @@ public sealed class CommandProcessor
         RegisterCommand(new ReadCommand());
         RegisterCommand(new OpenCommand());
         RegisterCommand(new GiveCommand());
-        RegisterCommand(new PayCommand());
         RegisterCommand(new TravelCommand());
         RegisterCommand(new ExitsCommand());
         RegisterCommand(helpCommand);
