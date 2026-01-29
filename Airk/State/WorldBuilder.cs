@@ -4,6 +4,19 @@ namespace Airk.State;
 
 public static class WorldBuilder
 {
+    private const string RegulaminText =
+        "=== KREZNIK METRO TRANSIT AUTHORITY ===\n" +
+        "REGULATION NOTICE\n\n" +
+        "1. Fare is a one-time day pass paid at the entrance turnstile.\n" +
+        "   Re-entry is permitted.\n\n" +
+        "2. To travel between stations, use: travel <station-code>\n\n" +
+        "3. Active stations:\n" +
+        "   RED LINE: Sector 7 [s7] --- Outer Rim [rim]\n" +
+        "   BLUE LINE: Service suspended until further notice.\n\n" +
+        "4. NeoCortex Corp assumes no liability for delays,\n" +
+        "   cancellations, or incidents on metro property.\n\n" +
+        "=== TRAVEL SAFE. TRAVEL MONITORED. ===";
+
     public static GameState CreateNewGame()
     {
         var state = new GameState();
@@ -77,11 +90,16 @@ public static class WorldBuilder
             Id = "platform",
             Name = "Sector 7 Platform",
             ShortDescription = "An underground platform humming with distant trains.",
-            Description = "The underground platform hums with the vibration of distant trains. Flickering fluorescent lights cast a sickly glow over cracked tiles. A few figures wait in the shadows. A corridor to the east is marked with a faded red cross. The turnstiles are to the south.",
+            Description = "The underground platform hums with the vibration of distant trains. Flickering fluorescent lights cast a sickly glow over cracked tiles. A few figures wait in the shadows. A corridor to the east is marked with a faded red cross. The turnstiles are to the south. A battered regulation sign hangs on the wall near the tracks. A display board shows: Red Line - Sector 7 [s7].",
             Exits = new Dictionary<string, string>
             {
                 ["south"] = "metro",
                 ["east"] = "clinic"
+            },
+            Readables = new Dictionary<string, string>
+            {
+                ["regulamin"] = RegulaminText,
+                ["regulations"] = RegulaminText
             },
             Items = new List<string>()
         };
@@ -486,6 +504,155 @@ public static class WorldBuilder
                     Repeatable = true
                 }
             }
+        };
+
+        // Outer Rim sector
+
+        state.Rooms["outerrim-platform"] = new Room
+        {
+            Id = "outerrim-platform",
+            Name = "Outer Rim Platform",
+            ShortDescription = "A dimly lit platform at the edge of the metro network.",
+            Description = "The platform here is barely maintained. Cracked tiles and exposed wiring line the walls. The fluorescent lights flicker erratically. A heavy security door to the north is marked 'RESTRICTED'. A passage to the east leads to a maintenance corridor. A regulation sign hangs crookedly on the wall. A display board shows: Red Line - Outer Rim [rim].",
+            Exits = new Dictionary<string, string>
+            {
+                ["north"] = "facility-gate",
+                ["east"] = "maintenance"
+            },
+            Readables = new Dictionary<string, string>
+            {
+                ["regulamin"] = RegulaminText,
+                ["regulations"] = RegulaminText
+            },
+            Items = new List<string>()
+        };
+
+        state.Rooms["facility-gate"] = new Room
+        {
+            Id = "facility-gate",
+            Name = "Facility Gate",
+            ShortDescription = "A fortified checkpoint guarding access to a NeoCortex facility.",
+            Description = "A reinforced security checkpoint. Cameras track your movement. A heavy blast door blocks the way north, sealed with a biometric lock. A terminal on the wall displays: 'ICARUS RESEARCH FACILITY - LEVEL 5 CLEARANCE REQUIRED'. The platform is to the south.",
+            Exits = new Dictionary<string, string>
+            {
+                ["south"] = "outerrim-platform"
+            },
+            Items = new List<string>()
+        };
+
+        state.Rooms["maintenance"] = new Room
+        {
+            Id = "maintenance",
+            Name = "Maintenance Corridor",
+            ShortDescription = "A narrow service corridor cluttered with old equipment.",
+            Description = "Pipes run along the low ceiling, dripping condensation. Old metro maintenance equipment is piled against the walls. Someone has set up a makeshift living space in a recessed alcove -- a cot, a portable heater, and stacks of data storage cubes. The platform is to the west.",
+            Exits = new Dictionary<string, string>
+            {
+                ["west"] = "outerrim-platform"
+            },
+            Items = new List<string> { "access-card" }
+        };
+
+        state.Npcs["echo"] = new Npc
+        {
+            Id = "echo",
+            Name = "Echo",
+            Description = "A nervous woman in a grimy NeoCortex maintenance uniform. She flinches at every sound from the tunnels.",
+            RoomId = "maintenance",
+            Dialogue = new List<DialogueLine>
+            {
+                new DialogueLine
+                {
+                    Id = "echo_intro",
+                    Text = "Don't-- don't come any closer. ...Wait. You're not security. Who are you? Never mind. I'm Echo. I used to work maintenance at the Icarus facility up north. I got out. Barely.",
+                    SetsFlag = "met_echo",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "echo_ask_facility",
+                    Label = "Ask about the Icarus facility",
+                    RequiresFlag = "met_echo",
+                    Text = "Level 5 clearance to get in. Biometric locks, armed guards, the works. They're running neural experiments in there. Mass scale. I've seen the processing rooms -- hundreds of chairs, all wired up. They call it 'population optimization'.",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "echo_ask_access",
+                    Label = "Ask how to get inside",
+                    RequiresFlag = "met_echo",
+                    Text = "The blast door needs Level 5 biometrics. But there's a maintenance access -- old tunnel, sealed years ago. My access card might still work on the service entrance. ...Take it. I'm not going back in there.",
+                    SetsFlag = "echo_offered_card",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "echo_give_card",
+                    RequiresFlag = "echo_offered_card",
+                    Text = "The card is right there, on the cot. It's a maintenance-level pass. Won't get you into the main labs, but it'll get you through the service tunnels. Be careful -- the automated security doesn't ask questions.",
+                    SetsFlag = "echo_gave_card_info",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "echo_post_deep_scan",
+                    Label = "Tell her you worked at Icarus",
+                    RequiresFlag = "deep_scan_done",
+                    Text = "You worked there? As a researcher? Then you know what they're doing. And they wiped you for trying to stop it. ...Listen. There's a server room in the facility. If you can get to it, you could pull the evidence. Expose everything. But you'd need someone on the outside ready to broadcast it.",
+                    SetsFlag = "echo_knows_identity",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "echo_idle",
+                    RequiresFlag = "met_echo",
+                    Text = "I'm not going back. But if you're crazy enough to try... good luck.",
+                    Repeatable = true
+                }
+            }
+        };
+
+        state.Npcs["rimguard"] = new Npc
+        {
+            Id = "rimguard",
+            Name = "Facility Guard",
+            Description = "A guard in heavy NeoCortex tactical armor, face hidden behind a reflective visor. An automatic rifle is slung across their chest.",
+            RoomId = "facility-gate",
+            Dialogue = new List<DialogueLine>
+            {
+                new DialogueLine
+                {
+                    Id = "rimguard_intro",
+                    Text = "Restricted area. Turn around.",
+                    SetsFlag = "met_rimguard",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "rimguard_no_access",
+                    RequiresFlag = "met_rimguard",
+                    Text = "I said restricted. No clearance, no entry. That's how it works.",
+                    Repeatable = true
+                }
+            }
+        };
+
+        // Metro stations
+
+        state.MetroStations["s7"] = new MetroStation
+        {
+            Code = "s7",
+            Name = "Sector 7 Platform",
+            PlatformRoomId = "platform",
+            Line = "Red"
+        };
+
+        state.MetroStations["rim"] = new MetroStation
+        {
+            Code = "rim",
+            Name = "Outer Rim",
+            PlatformRoomId = "outerrim-platform",
+            Line = "Red"
         };
 
         state.LastMessage = "You wake up in a dark alley. Your head pounds. You don't remember how you got here. A flickering neon sign above reads 'Welcome to Kreznik' - but that doesn't help. Everyone knows Kreznik.";

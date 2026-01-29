@@ -5,7 +5,7 @@ namespace Airk.Commands;
 public sealed class UseCommand : ICommand
 {
     public string Name => "use";
-    public string[] Aliases => ["activate", "read"];
+    public string[] Aliases => ["activate"];
     public string Description => "Use an item from your inventory";
 
     public CommandResult Execute(GameState state, string[] args)
@@ -51,10 +51,10 @@ public sealed class UseCommand : ICommand
     private static CommandResult UseTransitMap()
     {
         return new CommandResult(true,
-            "You unfold the transit map. Lines branch out from the central hub:\n" +
-            "  Red Line: Neon Boulevard - Sector 7 Platform - Outer Rim\n" +
-            "  Blue Line: Corp District - Central Hub - Docklands\n" +
-            "You are near the Neon Boulevard station.");
+            "You unfold the transit map. Lines and station codes:\n" +
+            "  Red Line: Sector 7 [s7] --- Outer Rim [rim]\n" +
+            "  Blue Line: Corp District - Central Hub - Docklands (SERVICE SUSPENDED)\n" +
+            "Use 'travel <code>' at a metro platform to ride.");
     }
 
     private static CommandResult UsePackage(GameState state)

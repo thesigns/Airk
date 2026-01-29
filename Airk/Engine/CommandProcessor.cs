@@ -20,9 +20,12 @@ public sealed class CommandProcessor
         RegisterCommand(new InventoryCommand());
         RegisterCommand(new TalkCommand());
         RegisterCommand(new UseCommand());
+        RegisterCommand(new ReadCommand());
         RegisterCommand(new OpenCommand());
         RegisterCommand(new GiveCommand());
         RegisterCommand(new PayCommand());
+        RegisterCommand(new TravelCommand());
+        RegisterCommand(new ExitsCommand());
         RegisterCommand(helpCommand);
         RegisterCommand(new QuitCommand());
     }

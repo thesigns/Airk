@@ -11,7 +11,8 @@ public sealed class LookCommand : ICommand
         ["transit-map"] = "A worn paper map of the Kreznik metro system. Lines crisscross in a confusing web.",
         ["package"] = "A small sealed package wrapped in black plastic. Chrome told you not to open it. Try 'open package' if you dare.",
         ["cortex-chip"] = "A small, iridescent chip sealed in anti-static packaging. Military markings are partially scratched off.",
-        ["neural-interface"] = "A tangle of fine wires and a small processor unit. Used for connecting to neural implants."
+        ["neural-interface"] = "A tangle of fine wires and a small processor unit. Used for connecting to neural implants.",
+        ["access-card"] = "A battered NeoCortex maintenance access card. The magnetic strip is scratched but intact. Name field reads 'ECHO - MAINT. LEVEL 3'."
     };
 
     public string Name => "look";

@@ -13,6 +13,7 @@ public sealed class GameState
     public Dictionary<string, Npc> Npcs { get; set; } = new();
     public HashSet<string> Flags { get; set; } = new();
     public HashSet<string> UsedDialogue { get; set; } = new();
+    public Dictionary<string, MetroStation> MetroStations { get; set; } = new();
     public string? LastMessage { get; set; }
 
     public PlayerView Project()

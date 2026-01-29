@@ -102,7 +102,7 @@ It is a **technical memory** for future iterations.
 
 ### Current State
 
-7-room cyberpunk world with 2 quest chains (Chrome's package has branching outcome), cross-quest narrative connections, deep scan mechanic, 6 NPCs, dialogue choices, gated exits, directional look, and 12 commands. Fully playable.
+10-room, 2-sector cyberpunk world connected by metro system. 2 quest chains (Chrome's package with branching outcome, Kira's memory restoration with deep scan), cross-quest connections, Icarus storyline, 8 NPCs, dialogue choices, metro travel, readables, and 14 commands. Fully playable.
 
 ### Key Constraints from BOOTSTRAP.md
 
@@ -127,18 +127,21 @@ Program.cs                 Entry point, mode detection
 │   ├── InventoryCommand.cs List carried items
 │   ├── TalkCommand.cs     NPC dialogue with choice system
 │   ├── UseCommand.cs      Context-sensitive item usage
+│   ├── ReadCommand.cs     Read signs/notices in rooms (regulamin)
 │   ├── OpenCommand.cs     Open/unwrap items (package)
 │   ├── GiveCommand.cs     Give items to NPCs (neural-interface to Kira)
 │   ├── PayCommand.cs      Pay for services (metro fare)
+│   ├── TravelCommand.cs   Metro travel between stations
 │   ├── HelpCommand.cs     Show commands
 │   └── QuitCommand.cs     Exit game
 ├── State/
-│   ├── GameState.cs       Full internal state (serialized to session.json)
+│   ├── GameState.cs       Full internal state + MetroStations
 │   ├── PlayerView.cs      Projected player-visible state (output as JSON)
-│   └── WorldBuilder.cs    Creates initial world with NPCs
+│   └── WorldBuilder.cs    Creates initial world with NPCs and metro network
 ├── World/
-│   ├── Room.cs            Room + ExitGate data structures
-│   └── Npc.cs             NPC + DialogueLine structures
+│   ├── Room.cs            Room + ExitGate + Readables
+│   ├── Npc.cs             NPC + DialogueLine structures
+│   └── MetroStation.cs    Metro station data (Code, Name, PlatformRoomId, Line)
 ├── Persistence/
 │   └── SessionManager.cs  Load/save session.json
 └── UI/
@@ -162,23 +165,29 @@ Program.cs                 Entry point, mode detection
 
 ### World Content
 
-**Rooms** (7): alley (start), bar, street, metro, platform, clinic, market
-**Items** (6): credstick, datapad, transit-map, package, cortex-chip, neural-interface
-**NPCs** (6): Chrome (bar), Security Guard (metro), Noodle Vendor (street), Kira (clinic), Scavenger (market), Drifter (platform)
-**Commands** (12): look, go, take, drop, inventory, talk, use, open, give, pay, help, quit
+**Rooms** (10): alley (start), bar, street, metro, platform, clinic, market, outerrim-platform, facility-gate, maintenance
+**Items** (7): credstick, datapad, transit-map, package, cortex-chip, neural-interface, access-card
+**NPCs** (8): Chrome (bar), Security Guard (metro), Noodle Vendor (street), Kira (clinic), Scavenger (market), Drifter (platform), Echo (maintenance), Facility Guard (facility-gate)
+**Commands** (14): look, go, take, drop, inventory, talk, use, read, open, give, pay, travel, help, quit
 
 ### World Map
 
 ```
+SECTOR 7 (Station: s7)
                     [market]
                        |
-                      east
-                       |
 [alley] --east-- [street] --north-- [metro] --north(gated)--> [platform] --east-- [clinic]
-   |
-  north
-   |
-  [bar]
+   |                                                               |
+  north                                                     travel (Red Line)
+   |                                                               |
+  [bar]                                                            |
+                                                                   |
+OUTER RIM (Station: rim)                                           |
+                                                       [outerrim-platform] --east-- [maintenance]
+                                                               |
+                                                             north
+                                                               |
+                                                         [facility-gate]
 ```
 
 ### Gated Exits
@@ -186,6 +195,22 @@ Program.cs                 Entry point, mode detection
 `Room.GatedExits` maps a direction to an `ExitGate` with `RequiresFlag` and `FailureMessage`. `GoCommand` checks gates after confirming an exit exists. If the flag is missing, the failure message is returned and movement is blocked.
 
 Currently used: metro north → platform (requires `metro_paid` flag, set by `PayCommand`).
+
+### Metro System
+
+`MetroStation` class (`World/MetroStation.cs`): Code, Name, PlatformRoomId, Line. Stored in `GameState.MetroStations` keyed by station code.
+
+**TravelCommand**: checks if player's current room matches any station's `PlatformRoomId`. No args lists same-line destinations. `travel <code>` moves player to target platform. Same-line only (cross-line requires future hub transfer station).
+
+**Active stations**: `s7` (Sector 7 Platform, Red Line), `rim` (Outer Rim, Red Line). Blue Line service suspended (future).
+
+**Fare model**: One-time day pass via `PayCommand` at metro entrance. No re-payment for travel.
+
+**Regulamin**: Readable sign at all metro platforms — in-world tutorial explaining travel system, station codes, fare rules. Read with `read regulamin`.
+
+### Readables
+
+`Room.Readables`: `Dictionary<string, string>` mapping fixture names to text content. Fixed room features that can't be taken (signs, notices). `ReadCommand` checks room readables first, then delegates to `UseCommand` for inventory items (`read datapad`, `read transit-map`). The "read" alias was removed from `UseCommand` to avoid conflict.
 
 ### Dialogue System
 
@@ -244,6 +269,9 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 - **OpenCommand**: Separate from `use` — handles destructive/irreversible item actions (unwrapping package). Aliases: `unwrap`. Sets `opened_package` flag which branches guard/Chrome dialogue.
 - **GiveCommand**: `give <item> to <npc>` syntax. Parses with `LastIndexOf(" to ")`. NPC-specific reactions via switch expression. Default: "doesn't seem to want it". Currently handles: neural-interface → Kira (deep scan after memory restoration).
 - **PayCommand**: Room-specific; currently only metro. Extensible via room ID switch.
+- **TravelCommand**: Data-driven via `GameState.MetroStations`. Same-line only restriction allows future hub-transfer mechanic. Aliases: `ride`. `ShowDescription: true` on arrival.
+- **ReadCommand**: Checks `Room.Readables` first, inventory items second (delegates to `UseCommand`). Auto-reads single readable when no args.
+- **Readables**: Separate from `Items` — fixtures that can't be taken. Used for the regulamin sign. Keys are case-sensitive lowercase.
 - **ShortDescription**: One-sentence room summaries used by `look <direction>` for previewing adjacent rooms. Separate from full `Description`.
 - **ShowDescription flag**: `CommandResult.ShowDescription` controls interactive UI detail level. `look` (no args) and `go` set it to `true` (full description + items/people/exits). All other commands show only room name + result message. `[JsonIgnore]` on `PlayerView` — batch JSON always includes full data.
 - **Directional look**: `look north` etc. shows `ShortDescription` of the target room, or "nothing noteworthy" if no exit. Does not consume extra info — player gets a preview before committing to move.
@@ -253,9 +281,9 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 
 - No combat system
 - Health stat tracked but never changes
-- Metro fare is one-time (could be per-trip)
-- Project Icarus storyline: player identity revealed via deep scan but no actionable next step (Outer Rim facility not accessible)
+- Icarus facility interior not yet accessible (blast door blocks north exit at facility-gate). Access-card from Echo is a quest item for future use
+- Blue Line stations (Corp District, Central Hub, Docklands) mentioned in regulamin but not implemented
+- Cross-line metro transfers not implemented (future hub station)
 - No equipment/wearable system
-- Neural-interface item in clinic has no use yet
 - No save slot or multiple saves
-- Outer Rim station (mentioned by Drifter and Scavenger) does not exist yet — future expansion point for Icarus facility
+- No way to earn additional credits after Chrome's one-time job
