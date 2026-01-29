@@ -26,7 +26,7 @@ public sealed class UseCommand : ICommand
         {
             "datapad" => UseDatapad(state),
             "transit-map" => UseTransitMap(),
-            "package" => new CommandResult(false, "Chrome told you not to open it. Better deliver it as promised."),
+            "package" => UsePackage(state),
             _ => new CommandResult(false, $"You're not sure how to use the {itemName}.")
         };
     }
@@ -53,5 +53,17 @@ public sealed class UseCommand : ICommand
             "  Red Line: Neon Boulevard - Sector 7 Platform - Outer Rim\n" +
             "  Blue Line: Corp District - Central Hub - Docklands\n" +
             "You are near the Neon Boulevard station.");
+    }
+
+    private static CommandResult UsePackage(GameState state)
+    {
+        if (state.Flags.Contains("opened_package"))
+        {
+            return new CommandResult(false,
+                "The package is already open. Inside is a neural suppressor module with NeoCortex Corp markings.");
+        }
+
+        return new CommandResult(false,
+            "Chrome told you not to open it. But if you really want to... try 'open package'.");
     }
 }

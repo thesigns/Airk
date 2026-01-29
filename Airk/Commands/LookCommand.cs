@@ -9,7 +9,7 @@ public sealed class LookCommand : ICommand
         ["credstick"] = "A thin plastic stick with a dim LED. Contains 5 credits.",
         ["datapad"] = "A cracked datapad. The screen flickers with corrupted data about someone named 'Kira'.",
         ["transit-map"] = "A worn paper map of the Kreznik metro system. Lines crisscross in a confusing web.",
-        ["package"] = "A small sealed package wrapped in black plastic. Chrome told you not to open it.",
+        ["package"] = "A small sealed package wrapped in black plastic. Chrome told you not to open it. Try 'open package' if you dare.",
         ["cortex-chip"] = "A small, iridescent chip sealed in anti-static packaging. Military markings are partially scratched off.",
         ["neural-interface"] = "A tangle of fine wires and a small processor unit. Used for connecting to neural implants."
     };
@@ -50,6 +50,13 @@ public sealed class LookCommand : ICommand
                 return new CommandResult(true, $"To the {direction}: {targetRoom.ShortDescription}");
             }
             return new CommandResult(true, $"There's nothing noteworthy to the {direction}.");
+        }
+
+        // Override descriptions based on state
+        if (itemName == "package" && state.Flags.Contains("opened_package"))
+        {
+            return new CommandResult(true,
+                "The torn-open package. Inside is an NS-7 Neural Suppressor with NeoCortex Corp markings. The kind of hardware used to wipe people's memories.");
         }
 
         // Check room items

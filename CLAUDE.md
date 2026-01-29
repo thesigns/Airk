@@ -102,7 +102,7 @@ It is a **technical memory** for future iterations.
 
 ### Current State
 
-7-room cyberpunk world with 2 quest chains, 6 NPCs, dialogue choices, gated exits, directional look, and 10 commands. Fully playable.
+7-room cyberpunk world with 2 quest chains (Chrome's package has branching outcome), 6 NPCs, dialogue choices, gated exits, directional look, and 11 commands. Fully playable.
 
 ### Key Constraints from BOOTSTRAP.md
 
@@ -127,6 +127,7 @@ Program.cs                 Entry point, mode detection
 │   ├── InventoryCommand.cs List carried items
 │   ├── TalkCommand.cs     NPC dialogue with choice system
 │   ├── UseCommand.cs      Context-sensitive item usage
+│   ├── OpenCommand.cs     Open/unwrap items (package)
 │   ├── PayCommand.cs      Pay for services (metro fare)
 │   ├── HelpCommand.cs     Show commands
 │   └── QuitCommand.cs     Exit game
@@ -163,7 +164,7 @@ Program.cs                 Entry point, mode detection
 **Rooms** (7): alley (start), bar, street, metro, platform, clinic, market
 **Items** (6): credstick, datapad, transit-map, package, cortex-chip, neural-interface
 **NPCs** (6): Chrome (bar), Security Guard (metro), Noodle Vendor (street), Kira (clinic), Scavenger (market), Drifter (platform)
-**Commands** (10): look, go, take, drop, inventory, talk, use, pay, help, quit
+**Commands** (11): look, go, take, drop, inventory, talk, use, open, pay, help, quit
 
 ### World Map
 
@@ -203,12 +204,18 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 
 ### Quests
 
-**Quest 1: Chrome's Package**
+**Quest 1: Chrome's Package** (branching)
 1. Talk to Chrome → intro (auto) → choices appear: "Ask about work" / "Ask about Kreznik"
 2. Pick work → job offer → accept (auto, receives package)
-3. Go to metro, talk guard with package → package delivered
-4. Return to Chrome → receive 10 credits
-5. Post-quest: new choices appear ("Ask about the datapad" if carrying datapad)
+3. Player can optionally `open package` — reveals NS-7 Neural Suppressor, sets `opened_package` flag
+4. Go to metro, talk guard with package:
+   - **Sealed**: Guard takes it normally → sets `job_complete`
+   - **Opened**: Guard notices tampering → sets `job_complete_tampered`
+5. Return to Chrome:
+   - **Sealed**: Receive 10 credits
+   - **Opened**: Receive 5 credits (reduced for disobedience)
+6. Both paths set `job_paid` flag, enabling Kira quest progression
+7. Post-quest: new choices appear ("Ask about the datapad" if carrying datapad)
 
 **Quest 2: Kira's Memory Restoration**
 1. Take datapad in alley → `use datapad` → reveals Kira/clinic clue (sets `read_datapad`)
@@ -220,7 +227,7 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 7. Go to night market (street east) → take cortex-chip
 8. Return to clinic → talk Kira → memory restoration scene (removes chip, reveals Project Icarus)
 
-**Credit economy**: credstick +5, Chrome job +10, metro fare -10 → 5 remaining. Chrome quest must complete before affording metro.
+**Credit economy**: credstick +5, Chrome job +10 (sealed) or +5 (opened) → metro fare -10 → 5 or 0 remaining. Chrome quest must complete before affording metro. Opening the package is a choice with economic consequences.
 
 ### Design Decisions
 
@@ -229,7 +236,8 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 - **Dialogue priority**: Story beats (auto, non-repeatable) → choices (labeled) → fallbacks (auto, repeatable)
 - **Text wrapping**: `TextFormatter.WordWrap()` wraps text at 80 columns, breaking only at spaces; preserves existing newlines; handles words longer than 80 chars by forced break
 - **Gated exits**: Separate `GatedExits` dictionary on Room avoids changing the `Exits` type; backward-compatible with old saves (empty dict by default)
-- **UseCommand**: Hardcoded item logic, matching pattern of TakeCommand (credstick special case) and LookCommand (item descriptions dict)
+- **UseCommand**: Hardcoded item logic, matching pattern of TakeCommand (credstick special case) and LookCommand (item descriptions dict). `use package` hints toward `open package`.
+- **OpenCommand**: Separate from `use` — handles destructive/irreversible item actions (unwrapping package). Aliases: `unwrap`. Sets `opened_package` flag which branches guard/Chrome dialogue.
 - **PayCommand**: Room-specific; currently only metro. Extensible via room ID switch.
 - **ShortDescription**: One-sentence room summaries used by `look <direction>` for previewing adjacent rooms. Separate from full `Description`.
 - **ShowDescription flag**: `CommandResult.ShowDescription` controls interactive UI detail level. `look` (no args) and `go` set it to `true` (full description + items/people/exits). All other commands show only room name + result message. `[JsonIgnore]` on `PlayerView` — batch JSON always includes full data.

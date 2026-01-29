@@ -157,6 +157,15 @@ public static class WorldBuilder
                 },
                 new DialogueLine
                 {
+                    Id = "chrome_job_done_tampered",
+                    RequiresFlag = "job_complete_tampered",
+                    Text = "The guard told me you opened the package. I said don't open it. Here's 5 credits. Consider the rest a lesson in following instructions.",
+                    GivesCredits = 5,
+                    SetsFlag = "job_paid",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
                     Id = "chrome_job_done",
                     RequiresFlag = "job_complete",
                     Text = "Nice work. Here's your 10 credits. Maybe I'll have more work for you later.",
@@ -199,6 +208,16 @@ public static class WorldBuilder
             RoomId = "metro",
             Dialogue = new List<DialogueLine>
             {
+                new DialogueLine
+                {
+                    Id = "guard_package_opened",
+                    RequiresFlag = "opened_package",
+                    RequiresItem = "package",
+                    Text = "Package from Chrome? ...Wait. You opened it? That wasn't part of the deal. I'll take it, but Chrome's going to hear about this.",
+                    SetsFlag = "job_complete_tampered",
+                    RemovesItem = "package",
+                    Repeatable = false
+                },
                 new DialogueLine
                 {
                     Id = "guard_package",
