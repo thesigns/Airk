@@ -27,6 +27,8 @@ public sealed class UseCommand : ICommand
             "datapad" => UseDatapad(state),
             "transit-map" => UseTransitMap(),
             "package" => UsePackage(state),
+            "neural-interface" => new CommandResult(false,
+                "The neural interface is a specialized tool. You'd need someone with expertise to make use of it."),
             _ => new CommandResult(false, $"You're not sure how to use the {itemName}.")
         };
     }

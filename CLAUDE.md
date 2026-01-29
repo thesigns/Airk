@@ -102,7 +102,7 @@ It is a **technical memory** for future iterations.
 
 ### Current State
 
-7-room cyberpunk world with 2 quest chains (Chrome's package has branching outcome), 6 NPCs, dialogue choices, gated exits, directional look, and 11 commands. Fully playable.
+7-room cyberpunk world with 2 quest chains (Chrome's package has branching outcome), cross-quest narrative connections, deep scan mechanic, 6 NPCs, dialogue choices, gated exits, directional look, and 12 commands. Fully playable.
 
 ### Key Constraints from BOOTSTRAP.md
 
@@ -128,6 +128,7 @@ Program.cs                 Entry point, mode detection
 │   ├── TalkCommand.cs     NPC dialogue with choice system
 │   ├── UseCommand.cs      Context-sensitive item usage
 │   ├── OpenCommand.cs     Open/unwrap items (package)
+│   ├── GiveCommand.cs     Give items to NPCs (neural-interface to Kira)
 │   ├── PayCommand.cs      Pay for services (metro fare)
 │   ├── HelpCommand.cs     Show commands
 │   └── QuitCommand.cs     Exit game
@@ -164,7 +165,7 @@ Program.cs                 Entry point, mode detection
 **Rooms** (7): alley (start), bar, street, metro, platform, clinic, market
 **Items** (6): credstick, datapad, transit-map, package, cortex-chip, neural-interface
 **NPCs** (6): Chrome (bar), Security Guard (metro), Noodle Vendor (street), Kira (clinic), Scavenger (market), Drifter (platform)
-**Commands** (11): look, go, take, drop, inventory, talk, use, open, pay, help, quit
+**Commands** (12): look, go, take, drop, inventory, talk, use, open, give, pay, help, quit
 
 ### World Map
 
@@ -216,6 +217,7 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
    - **Opened**: Receive 5 credits (reduced for disobedience)
 6. Both paths set `job_paid` flag, enabling Kira quest progression
 7. Post-quest: new choices appear ("Ask about the datapad" if carrying datapad)
+8. **Tampered path only**: "Ask about the neural suppressor" choice — Chrome confesses to running NS-7s for months
 
 **Quest 2: Kira's Memory Restoration**
 1. Take datapad in alley → `use datapad` → reveals Kira/clinic clue (sets `read_datapad`)
@@ -223,9 +225,11 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 3. Pay 10 credits at metro → `pay` command sets `metro_paid` flag
 4. Go north through turnstile → platform → east to clinic
 5. Talk to Kira → intro (auto) → choices: "Show the datapad" / "Ask about Kira" / "Ask about NeoCortex"
-6. Show datapad → Kira identifies memory extraction log → quest accepted (auto)
-7. Go to night market (street east) → take cortex-chip
-8. Return to clinic → talk Kira → memory restoration scene (removes chip, reveals Project Icarus)
+6. (If opened package) "Tell her about the neural suppressor" — Kira connects NS-7 to player's wipe
+7. Show datapad → Kira identifies memory extraction log → quest accepted (auto)
+8. Go to night market (street east) → take cortex-chip
+9. Return to clinic → talk Kira → memory restoration scene (removes chip, reveals Project Icarus)
+10. `give neural-interface to kira` → deep scan: reveals player was a NeoCortex researcher on Project Icarus who was wiped for trying to expose mass neural suppression (sets `deep_scan_done`)
 
 **Credit economy**: credstick +5, Chrome job +10 (sealed) or +5 (opened) → metro fare -10 → 5 or 0 remaining. Chrome quest must complete before affording metro. Opening the package is a choice with economic consequences.
 
@@ -238,6 +242,7 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 - **Gated exits**: Separate `GatedExits` dictionary on Room avoids changing the `Exits` type; backward-compatible with old saves (empty dict by default)
 - **UseCommand**: Hardcoded item logic, matching pattern of TakeCommand (credstick special case) and LookCommand (item descriptions dict). `use package` hints toward `open package`.
 - **OpenCommand**: Separate from `use` — handles destructive/irreversible item actions (unwrapping package). Aliases: `unwrap`. Sets `opened_package` flag which branches guard/Chrome dialogue.
+- **GiveCommand**: `give <item> to <npc>` syntax. Parses with `LastIndexOf(" to ")`. NPC-specific reactions via switch expression. Default: "doesn't seem to want it". Currently handles: neural-interface → Kira (deep scan after memory restoration).
 - **PayCommand**: Room-specific; currently only metro. Extensible via room ID switch.
 - **ShortDescription**: One-sentence room summaries used by `look <direction>` for previewing adjacent rooms. Separate from full `Description`.
 - **ShowDescription flag**: `CommandResult.ShowDescription` controls interactive UI detail level. `look` (no args) and `go` set it to `true` (full description + items/people/exits). All other commands show only room name + result message. `[JsonIgnore]` on `PlayerView` — batch JSON always includes full data.
@@ -249,8 +254,7 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 - No combat system
 - Health stat tracked but never changes
 - Metro fare is one-time (could be per-trip)
-- Project Icarus storyline introduced but not continued beyond memory restoration + NPC hints
-- Kira's second memory restoration session not implemented
+- Project Icarus storyline: player identity revealed via deep scan but no actionable next step (Outer Rim facility not accessible)
 - No equipment/wearable system
 - Neural-interface item in clinic has no use yet
 - No save slot or multiple saves

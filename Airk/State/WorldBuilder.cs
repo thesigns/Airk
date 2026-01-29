@@ -185,6 +185,14 @@ public static class WorldBuilder
                 },
                 new DialogueLine
                 {
+                    Id = "chrome_ns7_confession",
+                    Label = "Ask about the neural suppressor",
+                    RequiresFlag = "job_complete_tampered",
+                    Text = "You saw what was in the package? An NS-7. I've been running those for months. I don't ask who they're for. But lately... the orders have been getting bigger. Industrial scale. Whatever NeoCortex is building, they need a lot of people to forget.",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
                     Id = "chrome_waiting",
                     RequiresFlag = "job_accepted",
                     Text = "The metro station is north from Neon Boulevard. Get moving.",
@@ -324,6 +332,18 @@ public static class WorldBuilder
                 },
                 new DialogueLine
                 {
+                    Id = "kira_ns7_reaction",
+                    Label = "Tell her about the neural suppressor",
+                    RequiresFlag = "opened_package",
+                    Text = "An NS-7 Neural Suppressor? NeoCortex makes those. Military grade memory wipes. " +
+                           "That's the same technology they used on you. If someone in this district is " +
+                           "receiving shipments of those... it means they're still running operations here. " +
+                           "And your bartender friend is part of the supply chain, whether she knows it or not.",
+                    SetsFlag = "kira_knows_ns7",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
                     Id = "kira_ask_about_self",
                     Label = "Ask about Kira",
                     RequiresFlag = "met_kira",
@@ -337,6 +357,13 @@ public static class WorldBuilder
                     RequiresFlag = "met_kira",
                     Text = "NeoCortex runs Kreznik, top to bottom. They've got their fingers in everything - neural implants, surveillance, memory tech. Stay off their radar if you can.",
                     Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "kira_after_deep_scan",
+                    RequiresFlag = "deep_scan_done",
+                    Text = "You know who you are now. A NeoCortex researcher who tried to do the right thing. They'll come for you again if they find out you're remembering. Be ready.",
+                    Repeatable = true
                 },
                 new DialogueLine
                 {

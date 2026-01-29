@@ -21,6 +21,7 @@ public sealed class CommandProcessor
         RegisterCommand(new TalkCommand());
         RegisterCommand(new UseCommand());
         RegisterCommand(new OpenCommand());
+        RegisterCommand(new GiveCommand());
         RegisterCommand(new PayCommand());
         RegisterCommand(helpCommand);
         RegisterCommand(new QuitCommand());
