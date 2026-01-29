@@ -10,5 +10,7 @@ public sealed record PlayerView(
     IReadOnlyList<string> Inventory,
     int Health,
     int Credits,
-    string? Message
+    string? Message,
+    [property: System.Text.Json.Serialization.JsonIgnore]
+    bool ShowDescription = true
 );

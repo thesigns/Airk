@@ -2,7 +2,7 @@ using Airk.State;
 
 namespace Airk.Commands;
 
-public sealed record CommandResult(bool Success, string Message, bool ShouldQuit = false);
+public sealed record CommandResult(bool Success, string Message, bool ShouldQuit = false, bool ShowDescription = false);
 
 public interface ICommand
 {

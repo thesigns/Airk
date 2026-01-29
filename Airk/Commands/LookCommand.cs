@@ -18,15 +18,39 @@ public sealed class LookCommand : ICommand
     public string[] Aliases => ["l", "examine", "x"];
     public string Description => "Look around or examine an item";
 
+    private static readonly HashSet<string> Directions = new(StringComparer.OrdinalIgnoreCase)
+        { "north", "south", "east", "west", "n", "s", "e", "w" };
+
+    private static string NormalizeDirection(string dir) => dir.ToLowerInvariant() switch
+    {
+        "n" => "north",
+        "s" => "south",
+        "e" => "east",
+        "w" => "west",
+        _ => dir.ToLowerInvariant()
+    };
+
     public CommandResult Execute(GameState state, string[] args)
     {
         if (args.Length == 0)
         {
-            return new CommandResult(true, "You look around.");
+            return new CommandResult(true, "You look around.", ShowDescription: true);
         }
 
         var itemName = string.Join(" ", args).ToLowerInvariant();
         var room = state.Rooms[state.CurrentRoomId];
+
+        // Check if looking in a direction
+        if (args.Length == 1 && Directions.Contains(args[0]))
+        {
+            var direction = NormalizeDirection(args[0]);
+            if (room.Exits.TryGetValue(direction, out var targetRoomId))
+            {
+                var targetRoom = state.Rooms[targetRoomId];
+                return new CommandResult(true, $"To the {direction}: {targetRoom.ShortDescription}");
+            }
+            return new CommandResult(true, $"There's nothing noteworthy to the {direction}.");
+        }
 
         // Check room items
         if (room.Items.Contains(itemName))

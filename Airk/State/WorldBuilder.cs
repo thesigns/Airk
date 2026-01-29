@@ -12,6 +12,7 @@ public static class WorldBuilder
         {
             Id = "alley",
             Name = "Dark Alley",
+            ShortDescription = "A narrow alley between crumbling buildings, lit by flickering neon.",
             Description = "Rain drips from rusted fire escapes above. Neon signs flicker through the smog, casting red and blue shadows on the wet pavement. A dumpster overflows with discarded tech. To the north, a heavy steel door leads into a building. The alley continues east toward the main street.",
             Exits = new Dictionary<string, string>
             {
@@ -25,6 +26,7 @@ public static class WorldBuilder
         {
             Id = "bar",
             Name = "The Rusty Circuit",
+            ShortDescription = "A dimly lit synth bar behind a heavy steel door.",
             Description = "Synth music pulses from cracked speakers. A few figures hunch over drinks at the bar, their faces illuminated by the glow of their neural interfaces. The bartender, a chrome-armed woman, polishes a glass with mechanical precision. The exit south leads back to the alley.",
             Exits = new Dictionary<string, string>
             {
@@ -37,6 +39,7 @@ public static class WorldBuilder
         {
             Id = "street",
             Name = "Neon Boulevard",
+            ShortDescription = "A wide boulevard crowded with holographic ads and buzzing drones.",
             Description = "Holographic advertisements tower above, selling everything from neural upgrades to synthetic meals. Drones buzz overhead, their cameras scanning the crowds. A vendor cart sells hot noodles, steam rising into the polluted air. The alley is to the west, the metro station is to the north, and a night market sprawls to the east.",
             Exits = new Dictionary<string, string>
             {
@@ -51,6 +54,7 @@ public static class WorldBuilder
         {
             Id = "metro",
             Name = "Metro Station Entrance",
+            ShortDescription = "A metro station entrance with turnstiles and a security booth.",
             Description = "Turnstiles block access to the underground. A bored security guard watches from behind bulletproof glass. A sign reads 'Fare: 10 credits'. The boulevard is to the south and the platform is beyond the turnstiles to the north.",
             Exits = new Dictionary<string, string>
             {
@@ -72,6 +76,7 @@ public static class WorldBuilder
         {
             Id = "platform",
             Name = "Sector 7 Platform",
+            ShortDescription = "An underground platform humming with distant trains.",
             Description = "The underground platform hums with the vibration of distant trains. Flickering fluorescent lights cast a sickly glow over cracked tiles. A few figures wait in the shadows. A corridor to the east is marked with a faded red cross. The turnstiles are to the south.",
             Exits = new Dictionary<string, string>
             {
@@ -85,6 +90,7 @@ public static class WorldBuilder
         {
             Id = "clinic",
             Name = "Underground Clinic",
+            ShortDescription = "A makeshift clinic tucked into a corridor, smelling of antiseptic.",
             Description = "Medical equipment of questionable origin lines the walls. The air smells of antiseptic and solder. A woman with sharp eyes and steady hands works at a cluttered bench, surrounded by neural implant components. A sign on the wall reads 'Kira's Clinic - Repairs, Upgrades, Memory Work'. The platform is to the west.",
             Exits = new Dictionary<string, string>
             {
@@ -97,6 +103,7 @@ public static class WorldBuilder
         {
             Id = "market",
             Name = "Night Market",
+            ShortDescription = "A cramped night market packed with salvage stalls and street food.",
             Description = "Cramped stalls packed with salvaged tech, bootleg software, and street food. Cables hang overhead like vines. Vendors call out prices in a mix of languages. A narrow passage leads west back to the boulevard.",
             Exits = new Dictionary<string, string>
             {

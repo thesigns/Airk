@@ -50,13 +50,13 @@ public sealed class GameEngine
 
             if (_batchMode)
             {
-                // In batch mode, output the final view as JSON and exit
+                // In batch mode, output the full view as JSON and exit
                 var view = _state.Project();
                 _ui.DisplayView(view);
                 break;
             }
 
-            var nextView = _state.Project();
+            var nextView = _state.Project() with { ShowDescription = result.ShowDescription };
             _ui.DisplayView(nextView);
 
             if (result.ShouldQuit)

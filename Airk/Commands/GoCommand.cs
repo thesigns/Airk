@@ -46,6 +46,6 @@ public sealed class GoCommand : ICommand
         var newRoom = state.Rooms[targetRoomId];
         newRoom.Visited = true;
 
-        return new CommandResult(true, $"You go {direction}.");
+        return new CommandResult(true, $"You go {direction}.", ShowDescription: true);
     }
 }
