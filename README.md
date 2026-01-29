@@ -2,6 +2,11 @@
 
 A terminal-based text adventure game set in a cyberpunk world. Written in C# targeting .NET 10.0.
 
+This project is an experiment in AI-driven game development.
+
+The game is written, tested, played, and debugged primarily by Claude Code,
+with limited human guidance. Claude Code designs the systems, creates the narrative, and iterates on gameplay by actually playing the game.
+
 ## About
 
 Airk is an interactive fiction game where you explore the rain-soaked streets of Kreznik, a dystopian city of neon lights and corporate shadows. Navigate through dark alleys, seedy bars, and metro stations while interacting with NPCs and completing quests.
