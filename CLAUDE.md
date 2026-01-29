@@ -53,8 +53,8 @@ Claude Code must follow a **gameplay-driven iteration loop**.
    - Test mechanics, balance, clarity, and fun.
    - Look for bugs, unclear rules, and narrative issues.
 
-3. **Stop After 10 Turns**
-   - After at most 10 turns, stop playing.
+3. **Stop After 20 Turns**
+   - After at most 20 turns, stop playing.
    - Leave the game state in `session.json`.
 
 4. **Improve the Code**
@@ -102,7 +102,7 @@ It is a **technical memory** for future iterations.
 
 ### Current State
 
-Core game infrastructure is implemented and playable. 4-room cyberpunk scenario with basic commands.
+7-room cyberpunk world with 2 quest chains, dialogue choices, gated exits, and 10 commands. Fully playable.
 
 ### Key Constraints from BOOTSTRAP.md
 
@@ -121,11 +121,13 @@ Program.cs                 Entry point, mode detection
 ├── Commands/
 │   ├── ICommand.cs        Interface + CommandResult record
 │   ├── LookCommand.cs     Examine room/items/NPCs
-│   ├── GoCommand.cs       Movement (supports n/s/e/w shortcuts)
+│   ├── GoCommand.cs       Movement + gated exit checks
 │   ├── TakeCommand.cs     Pick up items
 │   ├── DropCommand.cs     Drop items
 │   ├── InventoryCommand.cs List carried items
-│   ├── TalkCommand.cs     NPC dialogue system
+│   ├── TalkCommand.cs     NPC dialogue with choice system
+│   ├── UseCommand.cs      Context-sensitive item usage
+│   ├── PayCommand.cs      Pay for services (metro fare)
 │   ├── HelpCommand.cs     Show commands
 │   └── QuitCommand.cs     Exit game
 ├── State/
@@ -133,7 +135,7 @@ Program.cs                 Entry point, mode detection
 │   ├── PlayerView.cs      Projected player-visible state (output as JSON)
 │   └── WorldBuilder.cs    Creates initial world with NPCs
 ├── World/
-│   ├── Room.cs            Room data structure
+│   ├── Room.cs            Room + ExitGate data structures
 │   └── Npc.cs             NPC + DialogueLine structures
 ├── Persistence/
 │   └── SessionManager.cs  Load/save session.json
@@ -158,34 +160,85 @@ Program.cs                 Entry point, mode detection
 
 ### World Content
 
-**Rooms**: alley (start), bar, street, metro
-**Items**: credstick (5 credits, dissolves on take), datapad, transit-map, package (quest item)
-**NPCs**: Chrome (bartender, quest giver), Security Guard (quest target)
-**Commands**: look, go, take, drop, inventory, talk, help, quit
+**Rooms** (7): alley (start), bar, street, metro, platform, clinic, market
+**Items** (6): credstick, datapad, transit-map, package, cortex-chip, neural-interface
+**NPCs** (4): Chrome (bar), Security Guard (metro), Noodle Vendor (street), Kira (clinic)
+**Commands** (10): look, go, take, drop, inventory, talk, use, pay, help, quit
+
+### World Map
+
+```
+                    [market]
+                       |
+                      east
+                       |
+[alley] --east-- [street] --north-- [metro] --north(gated)--> [platform] --east-- [clinic]
+   |
+  north
+   |
+  [bar]
+```
+
+### Gated Exits
+
+`Room.GatedExits` maps a direction to an `ExitGate` with `RequiresFlag` and `FailureMessage`. `GoCommand` checks gates after confirming an exit exists. If the flag is missing, the failure message is returned and movement is blocked.
+
+Currently used: metro north → platform (requires `metro_paid` flag, set by `PayCommand`).
 
 ### Dialogue System
 
 `DialogueLine` properties:
+- `Label`: Short text for dialogue choice menu (nullable; if null, line is auto-executed)
 - `RequiresFlag` / `RequiresItem`: Conditions for availability
 - `SetsFlag`: Sets game flag when spoken
 - `GivesCredits` / `GivesItem` / `RemovesItem`: Inventory/economy effects
 - `Repeatable`: Whether line can be repeated
 
-**Quest: Chrome's Package**
-1. Talk to Chrome → intro → job offer → accept (receive package)
-2. Talk to guard at metro with package → delivers package (removed from inventory)
-3. Return to Chrome → receive 10 credits
+**Dialogue priority in TalkCommand:**
+1. **Story beats** (no Label, non-repeatable) — fire automatically first (intros, quest progression)
+2. **Choices** (have Label) — if multiple, show numbered menu; if single, auto-execute
+3. **Fallbacks** (no Label, repeatable) — idle dialogue when no choices remain
+
+Player selects choices with `talk <npc> <number>`. Menu display does not advance the turn.
+
+### Quests
+
+**Quest 1: Chrome's Package**
+1. Talk to Chrome → intro (auto) → choices appear: "Ask about work" / "Ask about Kreznik"
+2. Pick work → job offer → accept (auto, receives package)
+3. Go to metro, talk guard with package → package delivered
+4. Return to Chrome → receive 10 credits
+5. Post-quest: new choices appear ("Ask about the datapad" if carrying datapad)
+
+**Quest 2: Kira's Memory Restoration**
+1. Take datapad in alley → `use datapad` → reveals Kira/clinic clue (sets `read_datapad`)
+2. (Optional) Talk to Noodle Vendor → choices: "Ask about Kira" / "Ask about rumors"
+3. Pay 10 credits at metro → `pay` command sets `metro_paid` flag
+4. Go north through turnstile → platform → east to clinic
+5. Talk to Kira → intro (auto) → choices: "Show the datapad" / "Ask about Kira" / "Ask about NeoCortex"
+6. Show datapad → Kira identifies memory extraction log → quest accepted (auto)
+7. Go to night market (street east) → take cortex-chip
+8. Return to clinic → talk Kira → memory restoration scene (removes chip, reveals Project Icarus)
+
+**Credit economy**: credstick +5, Chrome job +10, metro fare -10 → 5 remaining. Chrome quest must complete before affording metro.
 
 ### Design Decisions
 
 - **Turn counter**: Only increments on successful commands (failed commands don't cost a turn)
 - **CommandResult.Success**: Determines if turn increments and can be used for future mechanics
-- **Dialogue priority**: First matching dialogue line is used (order matters in WorldBuilder)
+- **Dialogue priority**: Story beats (auto, non-repeatable) → choices (labeled) → fallbacks (auto, repeatable)
 - **Text wrapping**: `TextFormatter.WordWrap()` wraps text at 80 columns, breaking only at spaces; preserves existing newlines; handles words longer than 80 chars by forced break
+- **Gated exits**: Separate `GatedExits` dictionary on Room avoids changing the `Exits` type; backward-compatible with old saves (empty dict by default)
+- **UseCommand**: Hardcoded item logic, matching pattern of TakeCommand (credstick special case) and LookCommand (item descriptions dict)
+- **PayCommand**: Room-specific; currently only metro. Extensible via room ID switch.
 
 ### Known Gaps (for future iterations)
 
-- Datapad mentions "Kira" with no follow-up content
-- Metro interior not accessible yet (could unlock after paying fare)
 - No combat system
-- Chrome has no more jobs after first one
+- Health stat tracked but never changes
+- Metro fare is one-time (could be per-trip)
+- Project Icarus storyline introduced but not continued
+- Kira's second memory restoration session not implemented
+- No equipment/wearable system
+- Neural-interface item in clinic has no use yet
+- No save slot or multiple saves

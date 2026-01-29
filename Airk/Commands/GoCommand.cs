@@ -36,6 +36,12 @@ public sealed class GoCommand : ICommand
             return new CommandResult(false, $"You can't go {direction} from here.");
         }
 
+        if (room.GatedExits.TryGetValue(direction, out var gate) &&
+            !state.Flags.Contains(gate.RequiresFlag))
+        {
+            return new CommandResult(false, gate.FailureMessage);
+        }
+
         state.CurrentRoomId = targetRoomId;
         var newRoom = state.Rooms[targetRoomId];
         newRoom.Visited = true;

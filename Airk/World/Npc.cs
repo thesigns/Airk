@@ -13,6 +13,7 @@ public sealed class DialogueLine
 {
     public required string Id { get; init; }
     public required string Text { get; init; }
+    public string? Label { get; init; }
     public string? RequiresFlag { get; init; }
     public string? RequiresItem { get; init; }
     public string? SetsFlag { get; init; }
