@@ -343,6 +343,105 @@ public static class WorldBuilder
             }
         };
 
+        state.Npcs["scavenger"] = new Npc
+        {
+            Id = "scavenger",
+            Name = "Scavenger",
+            Description = "A wiry figure in a patched-up coat, fingers stained with solder. She picks through a pile of circuit boards, testing each one with a handheld scanner.",
+            RoomId = "market",
+            Dialogue = new List<DialogueLine>
+            {
+                new DialogueLine
+                {
+                    Id = "scav_intro",
+                    Text = "Hey, hands off the merchandise. ...Oh, you're buying? Different story. I'm Patch. I deal in surplus -- military, corporate, whatever falls off a transport.",
+                    SetsFlag = "met_scavenger",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "scav_ask_cortex",
+                    Label = "Ask about cortex chips",
+                    RequiresFlag = "met_scavenger",
+                    Text = "Cortex chips? Military grade, hard to come by. That one over there's the last I've got. Fell off a NeoCortex shipment headed for their research wing. Don't ask how I got it.",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "scav_ask_neocortex",
+                    Label = "Ask about NeoCortex shipments",
+                    RequiresFlag = "met_scavenger",
+                    Text = "NeoCortex moves a lot of hardware through Kreznik. Neural implants, memory modules, stuff I can't even identify. Lately there's been more of it -- like they're building something big underground.",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "scav_icarus",
+                    Label = "Ask about Project Icarus",
+                    RequiresFlag = "memory_restored",
+                    Text = "Icarus? Keep your voice down. I've seen crates with that label. They go to a facility past the Outer Rim station -- nobody who works there talks about it. One guy tried. They found him wiped clean, wandering the streets. Sound familiar?",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "scav_idle",
+                    RequiresFlag = "met_scavenger",
+                    Text = "Browse all you want. Just don't break anything.",
+                    Repeatable = true
+                }
+            }
+        };
+
+        state.Npcs["drifter"] = new Npc
+        {
+            Id = "drifter",
+            Name = "Drifter",
+            Description = "A gaunt man sitting against the wall, eyes unfocused. His clothes are threadbare, but the neural port behind his ear looks brand new -- and expensive.",
+            RoomId = "platform",
+            Dialogue = new List<DialogueLine>
+            {
+                new DialogueLine
+                {
+                    Id = "drifter_intro",
+                    Text = "...don't touch me. I'm fine. Just... sitting. Waiting for a train that never comes.",
+                    SetsFlag = "met_drifter",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "drifter_ask_memories",
+                    Label = "Ask what happened to him",
+                    RequiresFlag = "met_drifter",
+                    Text = "I had a life. I think. There are shapes where memories should be. A lab. White lights. They said I volunteered, but I don't remember volunteering for anything.",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "drifter_ask_lab",
+                    Label = "Ask about the lab",
+                    RequiresFlag = "met_drifter",
+                    Text = "Past the Outer Rim station. Underground. I remember the smell -- ozone and antiseptic. And a name on the door. 'Icarus'. That's all I've got.",
+                    SetsFlag = "drifter_mentioned_icarus",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "drifter_post_restore",
+                    Label = "Tell him about your memories",
+                    RequiresFlag = "memory_restored",
+                    Text = "You too? Then they're still doing it. Still wiping people. I thought maybe it stopped. ...Be careful. If they find out you're remembering, they'll come for you again.",
+                    Repeatable = false
+                },
+                new DialogueLine
+                {
+                    Id = "drifter_idle",
+                    RequiresFlag = "met_drifter",
+                    Text = "...still waiting.",
+                    Repeatable = true
+                }
+            }
+        };
+
         state.LastMessage = "You wake up in a dark alley. Your head pounds. You don't remember how you got here. A flickering neon sign above reads 'Welcome to Kreznik' - but that doesn't help. Everyone knows Kreznik.";
 
         return state;

@@ -102,7 +102,7 @@ It is a **technical memory** for future iterations.
 
 ### Current State
 
-7-room cyberpunk world with 2 quest chains, dialogue choices, gated exits, and 10 commands. Fully playable.
+7-room cyberpunk world with 2 quest chains, 6 NPCs, dialogue choices, gated exits, directional look, and 10 commands. Fully playable.
 
 ### Key Constraints from BOOTSTRAP.md
 
@@ -162,7 +162,7 @@ Program.cs                 Entry point, mode detection
 
 **Rooms** (7): alley (start), bar, street, metro, platform, clinic, market
 **Items** (6): credstick, datapad, transit-map, package, cortex-chip, neural-interface
-**NPCs** (4): Chrome (bar), Security Guard (metro), Noodle Vendor (street), Kira (clinic)
+**NPCs** (6): Chrome (bar), Security Guard (metro), Noodle Vendor (street), Kira (clinic), Scavenger (market), Drifter (platform)
 **Commands** (10): look, go, take, drop, inventory, talk, use, pay, help, quit
 
 ### World Map
@@ -231,14 +231,19 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 - **Gated exits**: Separate `GatedExits` dictionary on Room avoids changing the `Exits` type; backward-compatible with old saves (empty dict by default)
 - **UseCommand**: Hardcoded item logic, matching pattern of TakeCommand (credstick special case) and LookCommand (item descriptions dict)
 - **PayCommand**: Room-specific; currently only metro. Extensible via room ID switch.
+- **ShortDescription**: One-sentence room summaries used by `look <direction>` for previewing adjacent rooms. Separate from full `Description`.
+- **ShowDescription flag**: `CommandResult.ShowDescription` controls interactive UI detail level. `look` (no args) and `go` set it to `true` (full description + items/people/exits). All other commands show only room name + result message. `[JsonIgnore]` on `PlayerView` — batch JSON always includes full data.
+- **Directional look**: `look north` etc. shows `ShortDescription` of the target room, or "nothing noteworthy" if no exit. Does not consume extra info — player gets a preview before committing to move.
+- **Cyan prompt**: Interactive mode prompt `>` rendered in cyan via `Console.ForegroundColor`.
 
 ### Known Gaps (for future iterations)
 
 - No combat system
 - Health stat tracked but never changes
 - Metro fare is one-time (could be per-trip)
-- Project Icarus storyline introduced but not continued
+- Project Icarus storyline introduced but not continued beyond memory restoration + NPC hints
 - Kira's second memory restoration session not implemented
 - No equipment/wearable system
 - Neural-interface item in clinic has no use yet
 - No save slot or multiple saves
+- Outer Rim station (mentioned by Drifter and Scavenger) does not exist yet — future expansion point for Icarus facility
