@@ -1,24 +1,25 @@
 # Airk
 
-A terminal-based text adventure game set in a cyberpunk world.
+A single-player MUD set in a cyberpunk metropolis, built in C#.
 
 This project is an experiment in AI-driven game development.
-
 The game is written, tested, played, and debugged primarily by Claude Code,
-with limited human guidance. Claude Code designs the systems, creates the narrative, and iterates on gameplay by actually playing the game.
+with limited human guidance.
 
 ## About
 
-Airk is an interactive fiction game where you explore the rain-soaked streets of Kreznik, a dystopian city of neon lights and corporate shadows. Navigate dark alleys, seedy bars, underground clinics, and metro tunnels while unraveling a conspiracy involving mass memory wiping, a shadowy research project called Icarus, and your own forgotten identity.
+Airk is a text-based game inspired by classic MUDs. Explore the streets and back alleys of Kreznik, a sprawling cyberpunk city of neon lights and corporate shadows. The world is defined in human-readable markdown files — maps as ASCII grids, rooms as `.md` documents.
+
+Design pillars: systemic gameplay, player freedom, a living world, and character progression.
 
 ## Features
 
-- Classic text adventure gameplay with parser-based commands
 - Dual-mode execution: interactive REPL or single-turn batch mode (JSON output)
+- Data-driven world: sector maps and room definitions in markdown files
+- ASCII grid maps parsed at runtime — easy to hand-edit and extend
+- Room descriptions with `*emphasis*` rendered as colored text in interactive mode
 - NPC dialogue system with selectable choices and conditional responses
-- Branching quest outcomes with narrative consequences
-- Multi-sector world connected by a metro travel system
-- Inventory, economy, and readable environment fixtures
+- Inventory, economy, gated exits, and metro travel infrastructure
 - Persistent game state saved between sessions
 
 ## Requirements
@@ -52,41 +53,37 @@ dotnet run --project Airk/Airk.csproj -- new
 | `take <item>` | Pick up an item |
 | `drop <item>` | Drop an item |
 | `inventory` | List carried items |
-| `talk <person>` | Talk to an NPC (select dialogue choices with number) |
+| `talk <person>` | Talk to an NPC |
 | `use <item>` | Use an item from your inventory |
 | `read` | Read a sign or notice in the room |
 | `open <item>` | Open or unwrap something |
 | `give <item> to <person>` | Give an item to an NPC |
-| `pay` | Pay for services (e.g. metro fare) |
 | `travel <code>` | Ride the metro to another station |
 | `help` | Show available commands |
 | `quit` | Exit the game |
 
-## Example Session
+## World Authoring
 
+Sectors are defined in `Assets/World/` as markdown files.
+
+**Map** (`test.md`) — ASCII grid inside a code block:
 ```
-=== Dark Alley ===
+    a00+a03
+     +   +
+a02+a01 a04
+     +
+    b00
+```
 
-You wake up in a dark alley. Your head pounds. You don't remember how you got
-here. A flickering neon sign above reads 'Welcome to Kreznik' - but that doesn't
-help. Everyone knows Kreznik.
+**Room** (`test_a00.md`) — markdown with H1 name and field syntax:
+```markdown
+# Starting Alley
 
-Rain drips from rusted fire escapes above. Neon signs flicker through the smog,
-casting red and blue shadows on the wet pavement. A dumpster overflows with
-discarded tech.
+**short:** Dead end alley with a flickering light.
 
-You see: credstick, datapad
-Exits: north, east
-
-[Turn 1 | Health: 100 | Credits: 0]
-
-> take credstick
-You pick up the credstick. It transfers 5 credits to your account before
-dissolving.
-
-> exits
-  north: A dimly lit synth bar behind a heavy steel door.
-  east: A wide boulevard crowded with holographic ads and buzzing drones.
+**description:**
+You're in a narrow dead-end alley. *Dumpsters* overflow
+against one wall. A single light flickers overhead.
 ```
 
 ## License
