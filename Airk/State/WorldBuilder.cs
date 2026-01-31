@@ -2,12 +2,14 @@ namespace Airk.State;
 
 public static class WorldBuilder
 {
+    private const string SectorId = "test";
+
     public static GameState CreateNewGame()
     {
         var state = new GameState();
 
-        var assetsPath = Path.Combine(AppContext.BaseDirectory, "Assets", "World");
-        var rooms = WorldLoader.LoadSector("test", assetsPath);
+        var assetsPath = GetAssetsPath();
+        var rooms = WorldLoader.LoadSector(SectorId, assetsPath);
 
         foreach (var (id, room) in rooms)
             state.Rooms[id] = room;
@@ -17,4 +19,12 @@ public static class WorldBuilder
 
         return state;
     }
+
+    public static void ReloadScripts(GameState state)
+    {
+        WorldLoader.ReloadScripts(state.Rooms, SectorId, GetAssetsPath());
+    }
+
+    private static string GetAssetsPath() =>
+        Path.Combine(AppContext.BaseDirectory, "Assets", "World");
 }

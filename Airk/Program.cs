@@ -10,6 +10,7 @@ try
     {
         // Interactive mode
         var state = SessionManager.Load();
+        WorldBuilder.ReloadScripts(state);
         var ui = new InteractiveUI();
         var engine = new GameEngine(ui, state);
         engine.Run();
@@ -41,6 +42,7 @@ try
     {
         // Batch mode: command passed as argument
         var state = SessionManager.Load();
+        WorldBuilder.ReloadScripts(state);
         var command = string.Join(" ", args);
         var ui = new BatchUI(command);
         var engine = new GameEngine(ui, state, batchMode: true);

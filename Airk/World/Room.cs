@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using Airk.World.MonkeyScript;
+
 namespace Airk.World;
 
 public sealed class Room
@@ -9,6 +12,8 @@ public sealed class Room
     public Dictionary<string, string> Exits { get; init; } = new();
     public Dictionary<string, ExitGate> GatedExits { get; init; } = new();
     public Dictionary<string, int> ExitCosts { get; init; } = new();
+    [JsonIgnore]
+    public Dictionary<string, ScriptNode> ExitScripts { get; init; } = new();
     public List<string> Items { get; set; } = new();
     public Dictionary<string, string> Readables { get; init; } = new();
     public bool Visited { get; set; }

@@ -102,7 +102,7 @@ It is a **technical memory** for future iterations.
 
 ### Current State
 
-Data-driven world loading from markdown asset files. Test sector with 6 rooms. No NPCs, items, dialogue, or metro yet — those systems exist in code (commands, models) but have no world content. The focus is on the room/map pipeline.
+Data-driven world loading from markdown asset files. Test sector with 8 rooms. MonkeyScript engine for conditional logic on exits (and future systems). No NPCs, items, dialogue, or metro yet — those systems exist in code (commands, models) but have no world content.
 
 ### Key Constraints from BOOTSTRAP.md
 
@@ -143,7 +143,14 @@ Program.cs                 Entry point, mode detection
 │   ├── Npc.cs             NPC + DialogueLine structures
 │   ├── MetroStation.cs    Metro station data
 │   ├── MapParser.cs       Parses ASCII grid map from markdown code blocks
-│   └── RoomFileParser.cs  Parses **field:** markdown format + Additional Exits for room definitions
+│   ├── RoomFileParser.cs  Parses **field:** markdown format + Additional Exits for room definitions
+│   ├── WorldLoadException.cs  Custom exception for world/room parsing errors
+│   └── MonkeyScript/      General-purpose miniscript engine
+│       ├── Token.cs        TokenType enum + Token record
+│       ├── Tokenizer.cs    Script text → token list
+│       ├── Node.cs         AST node types (Action, And, Or, Conditional, Sequence)
+│       ├── Parser.cs       Recursive descent parser (tokens → AST)
+│       └── Executor.cs     Evaluates AST against GameState → CommandResult
 ├── Persistence/
 │   └── SessionManager.cs  Load/save session.json
 ├── UI/
@@ -159,8 +166,9 @@ Program.cs                 Entry point, mode detection
 
 1. `Program.cs` determines mode from args
 2. `SessionManager.Load()` loads or creates `GameState`
-3. On new game: `WorldBuilder.CreateNewGame()` → `WorldLoader.LoadSector()` → `MapParser.Parse()` + pass 1: `RoomFileParser.Apply()` (names/descriptions) + pass 2: `RoomFileParser.ParseAdditionalExits()` (custom exits with validation)
-4. `GameEngine.Run()` loops (once in batch, repeatedly in interactive):
+3. On new game: `WorldBuilder.CreateNewGame()` → `WorldLoader.LoadSector()` → `MapParser.Parse()` + pass 1: `RoomFileParser.Apply()` (names/descriptions) + pass 2: `RoomFileParser.ParseAdditionalExits()` (custom exits + MonkeyScript parsing)
+4. On existing session: `WorldBuilder.ReloadScripts(state)` re-parses MonkeyScript from .md files (scripts are `[JsonIgnore]`, not persisted in session.json)
+5. `GameEngine.Run()` loops (once in batch, repeatedly in interactive):
    - `IGameUI.ReadCommand()` gets input
    - `CommandProcessor.Execute()` routes to `ICommand`
    - Command mutates `GameState`, returns `CommandResult`
@@ -222,7 +230,7 @@ against one wall. A single light flickers overhead,
 casting unsteady shadows on wet concrete.
 
 ## Additional Exits
-- **up:** c00 (Rooftop)
+- **up:** c00 (Rooftop) @pay(10) ? @go(c00) @msg(Paid.) : @msg(No money.)
 - **down:** d00 (Maintenance Tunnel)
 ```
 
@@ -243,18 +251,56 @@ casting unsteady shadows on wet concrete.
 
 Optional `## Additional Exits` section in room files. Defines custom named exits (up, down, enter, climb, etc.) beyond the cardinal directions from the grid map.
 
-**Format:** `- **direction:** localId (Room Name)`
+**Format:** `- **direction:** localId (Room Name) [optional MonkeyScript]`
 
 **Rules:**
 - Direction = lowercase word, must not conflict with command names, aliases, or cardinal directions
 - Destination = local room ID `[a-z][0-9][0-9]` within the same sector
 - Room Name in parentheses = mandatory checksum; must match the destination room's actual Name
+- Optional MonkeyScript after the parentheses overrides default go behavior for this exit
 - Exits are **one-directional** — no automatic return exits; each room defines its own
-- Strict parser: reserved word collision, duplicate directions, or malformed lines → `InvalidOperationException`
+- Strict parser: reserved word collision, duplicate directions, or malformed lines → `WorldLoadException`
 
-**`RoomFileParser.ParseAdditionalExits(roomId, text)`**: Parses the section, returns list of `(direction, localId, expectedName)`. Called by WorldLoader in pass 2 after all room names are finalized. WorldLoader validates destination existence and name match before adding to `Room.Exits`.
+**`RoomFileParser.ParseAdditionalExits(roomId, text)`**: Parses the section, returns list of `(direction, localId, expectedName, scriptText)`. Called by WorldLoader in pass 2 after all room names are finalized. WorldLoader validates destination existence and name match, then tokenizes/parses any script text into AST attached to `Room.ExitScripts`.
 
 **Behavior:** `up` or `go up` moves; `look up` shows destination's ShortDescription. Bare custom direction words are caught by CommandProcessor fallback (checks current room exits when verb is unknown).
+
+#### MonkeyScript
+
+General-purpose miniscript engine. First use case: exit scripts. Designed for reuse in NPC dialogue, item interactions, room events, shop transactions, quest conditions, etc.
+
+**Syntax:** `@function(argument)` — every action returns bool.
+
+**Operators** (high → low precedence):
+- Space (AND): `@f1 @f2` — short-circuit, stops on first false
+- `|` (OR): `@f1 | @f2` — short-circuit, stops on first true
+- `? :` (conditional): `@cond ? @true : @false`
+- `>` (sequence): `@s1 > @s2` — always runs both, like `;`
+
+**Grammar:**
+```
+script    := statement ('>' statement)*
+statement := expr '?' expr ':' expr | expr
+expr      := term ('|' term)*
+term      := action+                        ← implicit AND
+action    := '@' name '(' arg ')'
+```
+
+**Current actions:**
+- `@go(localId)` — move player to room, always returns true. Local ID resolved to global ID at load time.
+- `@msg(text)` — display message text, always returns true
+- `@pay(amount)` — deduct credits if enough → true; not enough → false (no deduction)
+
+**Example:** `@pay(10) ? @go(c00) @msg(You walk up the stairs.) : @msg(Not enough money to go up.)`
+
+**Architecture:**
+- `Tokenizer.Tokenize(roomId, text)` → `List<Token>` — scans actions and operators
+- `Parser.Parse(roomId, tokens)` → `ScriptNode` — recursive descent AST
+- `Executor.Execute(state, script, direction)` → `CommandResult` — evaluates AST, tracks side effects (movement, messages)
+
+**Serialization:** `Room.ExitScripts` is `[JsonIgnore]`. Scripts are not persisted in session.json. On session load, `WorldBuilder.ReloadScripts(state)` re-parses all scripts from asset .md files. This is safe because scripts are pure functions of the asset files.
+
+**Integration with GoCommand:** If `room.ExitScripts` has an entry for the direction, the script completely replaces default behavior (no GatedExits/ExitCosts check). Script controls movement, messaging, and success/failure.
 
 #### Emphasis
 
@@ -280,9 +326,10 @@ Optional `## Additional Exits` section in room files. Defines custom named exits
 - **Global room IDs**: `{sector}_{localId}` allows same local IDs in different sectors (e.g. `s7_a00` and `rim_a00` are distinct rooms).
 - **Text wrapping**: `TextFormatter.WordWrap()` wraps at 80 columns, preserves existing newlines, handles long words by forced break.
 - **Emphasis rendering**: `*text*` → colored in interactive mode, preserved in batch JSON. Simple toggle-on-asterisk approach.
-- **Custom exits (Additional Exits)**: Room files can define named exits (up, down, etc.) via `## Additional Exits` section. One-directional, same-sector, with mandatory name checksum. Two-pass loading: pass 1 finalizes names, pass 2 parses/validates exits. Bare custom directions handled by CommandProcessor fallback.
-- **Gated exits**: `Room.GatedExits` dictionary with `RequiresFlag` and `FailureMessage`. Checked by GoCommand. Not yet used in world content.
-- **Exit costs**: `Room.ExitCosts` dictionary mapping direction → credit cost. Not yet used in world content.
+- **Custom exits (Additional Exits)**: Room files can define named exits (up, down, etc.) via `## Additional Exits` section. One-directional, same-sector, with mandatory name checksum. Two-pass loading: pass 1 finalizes names, pass 2 parses/validates exits + scripts. Bare custom directions handled by CommandProcessor fallback.
+- **MonkeyScript**: General-purpose miniscript with `@action(arg)` syntax, operators (AND, OR, conditional, sequence), and short-circuit evaluation. Decoupled from exits — evaluates AST against GameState. Not persisted in session.json (re-parsed from asset files on every load).
+- **Gated exits**: `Room.GatedExits` dictionary with `RequiresFlag` and `FailureMessage`. Checked by GoCommand. Not yet used in world content. Can be superseded by MonkeyScript for complex gating.
+- **Exit costs**: `Room.ExitCosts` dictionary mapping direction → credit cost. Can be superseded by `@pay()` in MonkeyScript.
 - **ShowDescription flag**: `CommandResult.ShowDescription` controls detail level. `look` (no args) and `go` set it to `true`.
 - **Cyan prompt**: Interactive mode prompt `>` rendered in cyan.
 
@@ -295,5 +342,6 @@ Optional `## Additional Exits` section in room files. Defines custom named exits
 - No metro stations in current world content (travel command exists)
 - No equipment/wearable system
 - No save slot or multiple saves
-- Room file format supports name/short/description/additional exits (items, gates, costs, readables, spawn not yet in file format)
+- Room file format supports name/short/description/additional exits with MonkeyScript (items, gates, costs, readables, spawn not yet in file format)
+- MonkeyScript has only 3 actions (@go, @msg, @pay) — future: @flag, @require, @give, @take, etc.
 - No multi-sector world (only test sector loaded)

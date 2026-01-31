@@ -7,7 +7,7 @@ public static partial class RoomFileParser
     [GeneratedRegex(@"^\*\*(\w+):\*\*(.*)$")]
     private static partial Regex FieldPattern();
 
-    [GeneratedRegex(@"^-\s+\*\*(\w+):\*\*\s+([a-z]\d{2})\s+\((.+)\)\s*$")]
+    [GeneratedRegex(@"^-\s+\*\*(\w+):\*\*\s+([a-z]\d{2})\s+\((.+?)\)\s*(.*)$")]
     private static partial Regex ExitEntryPattern();
 
     private static readonly HashSet<string> ReservedWords = new(StringComparer.OrdinalIgnoreCase)
@@ -118,14 +118,14 @@ public static partial class RoomFileParser
         return string.Join("\n", lines).Trim();
     }
 
-    public static List<(string Direction, string LocalId, string ExpectedName)> ParseAdditionalExits(
-        string roomId, string text)
+    public static List<(string Direction, string LocalId, string ExpectedName, string ScriptText)>
+        ParseAdditionalExits(string roomId, string text)
     {
         // Strip BOM
         if (text.Length > 0 && text[0] == '\uFEFF')
             text = text[1..];
 
-        var exits = new List<(string, string, string)>();
+        var exits = new List<(string, string, string, string)>();
         var seenDirections = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var lines = text.Split('\n');
         var entryRegex = ExitEntryPattern();
@@ -145,9 +145,13 @@ public static partial class RoomFileParser
                 continue;
             }
 
-            // End of section
-            if (string.IsNullOrWhiteSpace(line) || line.StartsWith("## "))
+            // Next section or EOF
+            if (line.StartsWith("## "))
                 break;
+
+            // Skip blank lines within section
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
 
             var match = entryRegex.Match(line);
             if (!match.Success)
@@ -159,6 +163,7 @@ public static partial class RoomFileParser
             var direction = match.Groups[1].Value.ToLowerInvariant();
             var localId = match.Groups[2].Value;
             var expectedName = match.Groups[3].Value.Trim();
+            var scriptText = match.Groups[4].Value.Trim();
 
             if (ReservedWords.Contains(direction))
             {
@@ -172,7 +177,7 @@ public static partial class RoomFileParser
                     $"Room '{roomId}': duplicate custom exit direction '{direction}'.");
             }
 
-            exits.Add((direction, localId, expectedName));
+            exits.Add((direction, localId, expectedName, scriptText));
         }
 
         return exits;
