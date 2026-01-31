@@ -22,13 +22,13 @@ public sealed class InteractiveUI : IGameUI
         if (view.Message is not null)
         {
             Console.WriteLine();
-            Console.WriteLine(TextFormatter.WordWrap(view.Message));
+            WriteWithEmphasis(TextFormatter.WordWrap(view.Message));
         }
 
         if (view.ShowDescription)
         {
             Console.WriteLine();
-            Console.WriteLine(TextFormatter.WordWrap(view.Description));
+            WriteWithEmphasis(TextFormatter.WordWrap(view.Description));
 
             if (view.People.Count > 0)
             {
@@ -53,5 +53,22 @@ public sealed class InteractiveUI : IGameUI
     public void DisplayError(string message)
     {
         Console.WriteLine($"Error: {message}");
+    }
+
+    private static void WriteWithEmphasis(string text)
+    {
+        bool emphasis = false;
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '*')
+            {
+                emphasis = !emphasis;
+                Console.ForegroundColor = emphasis ? ConsoleColor.White : ConsoleColor.Gray;
+                continue;
+            }
+            Console.Write(text[i]);
+        }
+        Console.ResetColor();
+        Console.WriteLine();
     }
 }

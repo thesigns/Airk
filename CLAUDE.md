@@ -102,7 +102,7 @@ It is a **technical memory** for future iterations.
 
 ### Current State
 
-10-room, 2-sector cyberpunk world connected by metro system. 2 quest chains (Chrome's package with branching outcome, Kira's memory restoration with deep scan), cross-quest connections, Icarus storyline, 8 NPCs, dialogue choices, metro travel with automatic entry fee, readables, and 14 commands. Fully playable.
+Data-driven world loading from markdown asset files. Test sector with 6 rooms. No NPCs, items, dialogue, or metro yet — those systems exist in code (commands, models) but have no world content. The focus is on the room/map pipeline.
 
 ### Key Constraints from BOOTSTRAP.md
 
@@ -127,34 +127,40 @@ Program.cs                 Entry point, mode detection
 │   ├── InventoryCommand.cs List carried items
 │   ├── TalkCommand.cs     NPC dialogue with choice system
 │   ├── UseCommand.cs      Context-sensitive item usage
-│   ├── ReadCommand.cs     Read signs/notices in rooms (regulamin)
-│   ├── OpenCommand.cs     Open/unwrap items (package)
-│   ├── GiveCommand.cs     Give items to NPCs (neural-interface to Kira)
+│   ├── ReadCommand.cs     Read signs/notices in rooms
+│   ├── OpenCommand.cs     Open/unwrap items
+│   ├── GiveCommand.cs     Give items to NPCs
 │   ├── TravelCommand.cs   Metro travel between stations
 │   ├── HelpCommand.cs     Show commands
 │   └── QuitCommand.cs     Exit game
 ├── State/
 │   ├── GameState.cs       Full internal state + MetroStations
 │   ├── PlayerView.cs      Projected player-visible state (output as JSON)
-│   └── WorldBuilder.cs    Creates initial world with NPCs and metro network
+│   ├── WorldBuilder.cs    Creates initial world (delegates to WorldLoader)
+│   └── WorldLoader.cs     Loads sector .md files, applies room definitions
 ├── World/
-│   ├── Room.cs            Room + ExitGate + ExitCosts + Readables
+│   ├── Room.cs            Room + ExitGate
 │   ├── Npc.cs             NPC + DialogueLine structures
-│   └── MetroStation.cs    Metro station data (Code, Name, PlatformRoomId, Line)
+│   ├── MetroStation.cs    Metro station data
+│   ├── MapParser.cs       Parses ASCII grid map from markdown code blocks
+│   └── RoomFileParser.cs  Parses **field:** markdown format for room definitions
 ├── Persistence/
 │   └── SessionManager.cs  Load/save session.json
-└── UI/
-    ├── IGameUI.cs         Interface for input/output
-    ├── InteractiveUI.cs   Console REPL mode
-    ├── BatchUI.cs         Single-turn JSON mode
-    └── TextFormatter.cs   Word wrapping utility (80 columns)
+├── UI/
+│   ├── IGameUI.cs         Interface for input/output
+│   ├── InteractiveUI.cs   Console REPL mode + emphasis rendering
+│   ├── BatchUI.cs         Single-turn JSON mode
+│   └── TextFormatter.cs   Word wrapping utility (80 columns)
+└── Assets/
+    └── World/             Sector maps and room definition files (.md)
 ```
 
 ### Data Flow
 
 1. `Program.cs` determines mode from args
 2. `SessionManager.Load()` loads or creates `GameState`
-3. `GameEngine.Run()` loops (once in batch, repeatedly in interactive):
+3. On new game: `WorldBuilder.CreateNewGame()` → `WorldLoader.LoadSector()` → `MapParser.Parse()` + `RoomFileParser.Apply()` per room
+4. `GameEngine.Run()` loops (once in batch, repeatedly in interactive):
    - `IGameUI.ReadCommand()` gets input
    - `CommandProcessor.Execute()` routes to `ICommand`
    - Command mutates `GameState`, returns `CommandResult`
@@ -162,128 +168,109 @@ Program.cs                 Entry point, mode detection
    - `IGameUI.DisplayView()` outputs result
    - `SessionManager.Save()` persists state
 
+### Data-Driven World System
+
+World content lives in `Assets/World/` as markdown files, copied to build output.
+
+#### Sector Map Files
+
+File: `{sectorId}.md` (e.g. `test.md`)
+
+Map is inside a markdown code block (``` delimiters). Everything outside = comments/docs.
+
+```
+# Test Zone
+‍```
+    a00+a03
+     +   +
+a02+a01 a04
+     +
+    b00
+‍```
+Notes and documentation here are ignored by the parser.
+```
+
+**Grid rules:**
+- Room = 3 chars: `[a-z][0-9][0-9]` (letter prefix = sub-area, digits = room number)
+- `+` = open passage (horizontal between rooms, vertical between rows)
+- Space = no connection / no room
+- Rooms at columns 0, 4, 8, ... on even rows
+- Horizontal connectors at columns 3, 7, 11, ... on even rows
+- Vertical connectors at columns 1, 5, 9, ... on odd rows
+- Empty/whitespace-only line inside code block = end of map data
+
+**Global room IDs:** `{sectorId}_{localId}` (e.g. `test_a00`). One sector can have up to 2600 rooms (26 letters × 100 numbers). Local IDs must be unique within a sector (duplicates → error on load).
+
+**Default spawn:** Lexicographically lowest room ID in the sector.
+
+**`MapParser.Parse(sectorId, mapText)`**: Strips BOM, scans grid, builds Room objects with exits. Generic defaults: Name = localId, ShortDescription = "A room.", Description = "You are in room {localId}."
+
+#### Room Definition Files
+
+File: `{sectorId}_{localId}.md` (e.g. `test_a00.md`)
+
+**Optional** — if no file exists, room keeps MapParser defaults.
+
+```markdown
+**name:** Starting Alley
+
+**short:** Dead end alley with a flickering light.
+
+**description:**
+You're in a narrow dead-end alley. *Dumpsters* overflow
+against one wall. A single light flickers overhead,
+casting unsteady shadows on wet concrete.
+```
+
+**Format rules:**
+- Field = line starting with `**fieldname:**`
+- Content = text after `:** ` on same line + subsequent non-empty lines
+- If nothing after `:**`, content starts from next line (field-name-only line skipped)
+- Content ends at: empty line, next field, or EOF
+- Everything outside fields = ignored (comments, markdown formatting)
+- Newlines in content are preserved (each line becomes a separate line in-game)
+
+**Supported fields:** `name`, `short`, `description`
+
+**`RoomFileParser.Apply(room, fileText)`**: Parses fields, overrides Room properties. Room.Name/ShortDescription/Description use `set` (not `init`) to allow post-construction override.
+
+#### Emphasis
+
+`*text*` in descriptions = emphasis. Preserved as-is in the data.
+
+- **Interactive mode**: `WriteWithEmphasis()` in InteractiveUI renders emphasized text in White (ConsoleColor.White), normal text in Gray. Asterisks are stripped from display.
+- **Batch mode (JSON)**: Asterisks preserved in output. AI agents can parse them.
+
 ### World Content
 
-**Rooms** (10): alley (start), bar, street, metro, platform, clinic, market, outerrim-platform, facility-gate, maintenance
-**Items** (7): credstick, datapad, transit-map, package, cortex-chip, neural-interface, access-card
-**NPCs** (8): Chrome (bar), Security Guard (metro), Noodle Vendor (street), Kira (clinic), Scavenger (market), Drifter (platform), Echo (maintenance), Facility Guard (facility-gate)
+**Sector:** test (6 rooms)
+**Rooms:** test_a00 (Starting Alley), test_a01 (Pipe Junction), test_a02 (Ventilation Shaft), test_a03 (Dumpster Nook), test_a04 (Fire Escape Landing), test_b00 (Neon Boulevard)
+**Items:** none yet
+**NPCs:** none yet
 **Commands** (14): look, go, take, drop, inventory, talk, use, read, open, give, travel, exits, help, quit
-
-### World Map
-
-```
-SECTOR 7 (Station: s7)
-                    [market]
-                       |
-[alley] --east-- [street] --north(5cr)--> [metro] --north-- [platform] --east-- [clinic]
-   |                                                               |
-  north                                                     travel (Red Line)
-   |                                                               |
-  [bar]                                                            |
-                                                                   |
-OUTER RIM (Station: rim)                                           |
-                                                       [outerrim-platform] --east-- [maintenance]
-                                                               |
-                                                             north
-                                                               |
-                                                         [facility-gate]
-```
-
-### Gated Exits and Exit Costs
-
-`Room.GatedExits` maps a direction to an `ExitGate` with `RequiresFlag` and `FailureMessage`. `GoCommand` checks gates after confirming an exit exists. If the flag is missing, the failure message is returned and movement is blocked. Currently unused (reserved for future content).
-
-`Room.ExitCosts` maps a direction to a credit cost (int). `GoCommand` checks costs after gates. If the player has insufficient credits, movement is blocked with a message. Otherwise, the cost is deducted automatically and the player is informed. Currently used: street north → metro (5 credits).
-
-### Metro System
-
-`MetroStation` class (`World/MetroStation.cs`): Code, Name, PlatformRoomId, Line. Stored in `GameState.MetroStations` keyed by station code.
-
-**TravelCommand**: checks if player's current room matches any station's `PlatformRoomId`. No args lists same-line destinations. `travel <code>` moves player to target platform. Same-line only (cross-line requires future hub transfer station).
-
-**Active stations**: `s7` (Sector 7 Platform, Red Line), `rim` (Outer Rim, Red Line). Blue Line service suspended (future).
-
-**Fare model**: Automatic 5-credit deduction when entering metro from street (via `Room.ExitCosts`). Exit from metro to street is free. Internal metro transfers between platforms are free. No `pay` command — fare is automatic on movement.
-
-**Regulamin**: Readable sign at street (before entry) and all metro platforms — in-world tutorial explaining travel system, station codes, entry fee. Read with `read regulamin`.
-
-### Readables
-
-`Room.Readables`: `Dictionary<string, string>` mapping fixture names to text content. Fixed room features that can't be taken (signs, notices). `ReadCommand` checks room readables first, then delegates to `UseCommand` for inventory items (`read datapad`, `read transit-map`). The "read" alias was removed from `UseCommand` to avoid conflict.
-
-### Dialogue System
-
-`DialogueLine` properties:
-- `Label`: Short text for dialogue choice menu (nullable; if null, line is auto-executed)
-- `RequiresFlag` / `RequiresItem`: Conditions for availability
-- `SetsFlag`: Sets game flag when spoken
-- `GivesCredits` / `GivesItem` / `RemovesItem`: Inventory/economy effects
-- `Repeatable`: Whether line can be repeated
-
-**Dialogue priority in TalkCommand:**
-1. **Story beats** (no Label, non-repeatable) — fire automatically first (intros, quest progression)
-2. **Choices** (have Label) — if multiple, show numbered menu; if single, auto-execute
-3. **Fallbacks** (no Label, repeatable) — idle dialogue when no choices remain
-
-Player selects choices with `talk <npc> <number>`. Menu display does not advance the turn.
-
-### Quests
-
-**Quest 1: Chrome's Package** (branching)
-1. Talk to Chrome → intro (auto) → choices appear: "Ask about work" / "Ask about Kreznik"
-2. Pick work → job offer → accept (auto, receives package)
-3. Player can optionally `open package` — reveals NS-7 Neural Suppressor, sets `opened_package` flag
-4. Go to metro, talk guard with package:
-   - **Sealed**: Guard takes it normally → sets `job_complete`
-   - **Opened**: Guard notices tampering → sets `job_complete_tampered`
-5. Return to Chrome:
-   - **Sealed**: Receive 50 credits
-   - **Opened**: Receive 0 credits (punishment for disobedience)
-6. Both paths set `job_paid` flag, enabling Kira quest progression
-7. Post-quest: new choices appear ("Ask about the datapad" if carrying datapad)
-8. **Tampered path only**: "Ask about the neural suppressor" choice — Chrome confesses to running NS-7s for months
-
-**Quest 2: Kira's Memory Restoration**
-1. Take datapad in alley → `use datapad` → reveals Kira/clinic clue (sets `read_datapad`)
-2. (Optional) Talk to Noodle Vendor → choices: "Ask about Kira" / "Ask about rumors"
-3. Enter metro from street (5 credits auto-deducted at turnstile)
-4. Go north to platform → east to clinic
-5. Talk to Kira → intro (auto) → choices: "Show the datapad" / "Ask about Kira" / "Ask about NeoCortex"
-6. (If opened package) "Tell her about the neural suppressor" — Kira connects NS-7 to player's wipe
-7. Show datapad → Kira identifies memory extraction log → quest accepted (auto)
-8. Go to night market (street east) → take cortex-chip
-9. Return to clinic → talk Kira → memory restoration scene (removes chip, reveals Project Icarus)
-10. `give neural-interface to kira` → deep scan: reveals player was a NeoCortex researcher on Project Icarus who was wiped for trying to expose mass neural suppression (sets `deep_scan_done`)
-
-**Credit economy**: credstick +15, Chrome job +50 (sealed) or +0 (opened), metro entry -5 per visit. Opening the package is a choice with major economic consequences (65 vs 15 total credits). Metro is affordable from the start (credstick alone covers 3 entries).
 
 ### Design Decisions
 
 - **Turn counter**: Only increments on successful commands (failed commands don't cost a turn)
 - **CommandResult.Success**: Determines if turn increments and can be used for future mechanics
-- **Dialogue priority**: Story beats (auto, non-repeatable) → choices (labeled) → fallbacks (auto, repeatable)
-- **Text wrapping**: `TextFormatter.WordWrap()` wraps text at 80 columns, breaking only at spaces; preserves existing newlines; handles words longer than 80 chars by forced break
-- **Gated exits**: Separate `GatedExits` dictionary on Room avoids changing the `Exits` type; backward-compatible with old saves (empty dict by default). Currently unused (reserved for future content).
-- **Exit costs**: `ExitCosts` dictionary on Room maps directions to credit costs. `GoCommand` checks after gates, deducts automatically, or blocks if insufficient. Used for metro entry fee (street → metro, 5 credits).
-- **UseCommand**: Hardcoded item logic, matching pattern of TakeCommand (credstick special case) and LookCommand (item descriptions dict). `use package` hints toward `open package`.
-- **OpenCommand**: Separate from `use` — handles destructive/irreversible item actions (unwrapping package). Aliases: `unwrap`. Sets `opened_package` flag which branches guard/Chrome dialogue.
-- **GiveCommand**: `give <item> to <npc>` syntax. Parses with `LastIndexOf(" to ")`. NPC-specific reactions via switch expression. Default: "doesn't seem to want it". Currently handles: neural-interface → Kira (deep scan after memory restoration).
-- **TravelCommand**: Data-driven via `GameState.MetroStations`. Same-line only restriction allows future hub-transfer mechanic. Aliases: `ride`. `ShowDescription: true` on arrival.
-- **ReadCommand**: Checks `Room.Readables` first, inventory items second (delegates to `UseCommand`). Auto-reads single readable when no args.
-- **Readables**: Separate from `Items` — fixtures that can't be taken. Used for the regulamin sign. Keys are case-sensitive lowercase.
-- **ShortDescription**: One-sentence room summaries used by `look <direction>` for previewing adjacent rooms. Separate from full `Description`.
-- **ShowDescription flag**: `CommandResult.ShowDescription` controls interactive UI detail level. `look` (no args) and `go` set it to `true` (full description + items/people/exits). All other commands show only room name + result message. `[JsonIgnore]` on `PlayerView` — batch JSON always includes full data.
-- **Directional look**: `look north` etc. shows `ShortDescription` of the target room, or "nothing noteworthy" if no exit. Does not consume extra info — player gets a preview before committing to move.
-- **Cyan prompt**: Interactive mode prompt `>` rendered in cyan via `Console.ForegroundColor`.
+- **Data-driven world**: Rooms defined in .md files, not hardcoded. MapParser handles spatial layout, RoomFileParser handles content. WorldLoader orchestrates both.
+- **Markdown as data format**: Sector maps use code blocks (parseable + readable as docs). Room files use bold field markers (**field:**). Files double as documentation.
+- **Global room IDs**: `{sector}_{localId}` allows same local IDs in different sectors (e.g. `s7_a00` and `rim_a00` are distinct rooms).
+- **Text wrapping**: `TextFormatter.WordWrap()` wraps at 80 columns, preserves existing newlines, handles long words by forced break.
+- **Emphasis rendering**: `*text*` → colored in interactive mode, preserved in batch JSON. Simple toggle-on-asterisk approach.
+- **Gated exits**: `Room.GatedExits` dictionary with `RequiresFlag` and `FailureMessage`. Checked by GoCommand. Not yet used in world content.
+- **Exit costs**: `Room.ExitCosts` dictionary mapping direction → credit cost. Not yet used in world content.
+- **ShowDescription flag**: `CommandResult.ShowDescription` controls detail level. `look` (no args) and `go` set it to `true`.
+- **Cyan prompt**: Interactive mode prompt `>` rendered in cyan.
 
 ### Known Gaps (for future iterations)
 
-- No localization system (removed — all text is hardcoded English)
+- No NPCs or dialogue in current world content (code infrastructure exists)
+- No items in current world content (take/drop/use/give commands exist but nothing to interact with)
 - No combat system
 - Health stat tracked but never changes
-- Icarus facility interior not yet accessible (blast door blocks north exit at facility-gate). Access-card from Echo is a quest item for future use
-- Blue Line stations (Corp District, Central Hub, Docklands) mentioned in regulamin but not implemented
-- Cross-line metro transfers not implemented (future hub station)
+- No metro stations in current world content (travel command exists)
 - No equipment/wearable system
 - No save slot or multiple saves
-- No way to earn additional credits after Chrome's one-time job (sealed path gives 65 total, opened gives 15)
+- Room file format only supports name/short/description (items, gates, costs, readables, spawn not yet in file format)
+- No multi-sector world (only test sector loaded)
