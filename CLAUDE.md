@@ -137,13 +137,13 @@ Program.cs                 Entry point, mode detection
 │   ├── GameState.cs       Full internal state + MetroStations
 │   ├── PlayerView.cs      Projected player-visible state (output as JSON)
 │   ├── WorldBuilder.cs    Creates initial world (delegates to WorldLoader)
-│   └── WorldLoader.cs     Loads sector .md files, applies room definitions
+│   └── WorldLoader.cs     Loads sector .md files, applies room definitions (two-pass)
 ├── World/
 │   ├── Room.cs            Room + ExitGate
 │   ├── Npc.cs             NPC + DialogueLine structures
 │   ├── MetroStation.cs    Metro station data
 │   ├── MapParser.cs       Parses ASCII grid map from markdown code blocks
-│   └── RoomFileParser.cs  Parses **field:** markdown format for room definitions
+│   └── RoomFileParser.cs  Parses **field:** markdown format + Additional Exits for room definitions
 ├── Persistence/
 │   └── SessionManager.cs  Load/save session.json
 ├── UI/
@@ -159,7 +159,7 @@ Program.cs                 Entry point, mode detection
 
 1. `Program.cs` determines mode from args
 2. `SessionManager.Load()` loads or creates `GameState`
-3. On new game: `WorldBuilder.CreateNewGame()` → `WorldLoader.LoadSector()` → `MapParser.Parse()` + `RoomFileParser.Apply()` per room
+3. On new game: `WorldBuilder.CreateNewGame()` → `WorldLoader.LoadSector()` → `MapParser.Parse()` + pass 1: `RoomFileParser.Apply()` (names/descriptions) + pass 2: `RoomFileParser.ParseAdditionalExits()` (custom exits with validation)
 4. `GameEngine.Run()` loops (once in batch, repeatedly in interactive):
    - `IGameUI.ReadCommand()` gets input
    - `CommandProcessor.Execute()` routes to `ICommand`
@@ -220,6 +220,10 @@ File: `{sectorId}_{localId}.md` (e.g. `test_a00.md`)
 You're in a narrow dead-end alley. *Dumpsters* overflow
 against one wall. A single light flickers overhead,
 casting unsteady shadows on wet concrete.
+
+## Additional Exits
+- **up:** c00 (Rooftop)
+- **down:** d00 (Maintenance Tunnel)
 ```
 
 **Format rules:**
@@ -228,12 +232,29 @@ casting unsteady shadows on wet concrete.
 - Content = text after `:** ` on same line + subsequent non-empty lines
 - If nothing after `:**`, content starts from next line (field-name-only line skipped)
 - Content ends at: empty line, next field, or EOF
-- Everything outside H1/fields = ignored (comments, markdown formatting)
+- Everything outside H1/fields/Additional Exits = ignored (comments, markdown formatting)
 - Newlines in content are preserved (each line becomes a separate line in-game)
 
 **Supported fields:** `short`, `description`
 
 **`RoomFileParser.Apply(room, fileText)`**: Extracts name from H1, parses fields, overrides Room properties. Room.Name/ShortDescription/Description use `set` (not `init`) to allow post-construction override.
+
+#### Additional Exits
+
+Optional `## Additional Exits` section in room files. Defines custom named exits (up, down, enter, climb, etc.) beyond the cardinal directions from the grid map.
+
+**Format:** `- **direction:** localId (Room Name)`
+
+**Rules:**
+- Direction = lowercase word, must not conflict with command names, aliases, or cardinal directions
+- Destination = local room ID `[a-z][0-9][0-9]` within the same sector
+- Room Name in parentheses = mandatory checksum; must match the destination room's actual Name
+- Exits are **one-directional** — no automatic return exits; each room defines its own
+- Strict parser: reserved word collision, duplicate directions, or malformed lines → `InvalidOperationException`
+
+**`RoomFileParser.ParseAdditionalExits(roomId, text)`**: Parses the section, returns list of `(direction, localId, expectedName)`. Called by WorldLoader in pass 2 after all room names are finalized. WorldLoader validates destination existence and name match before adding to `Room.Exits`.
+
+**Behavior:** `up` or `go up` moves; `look up` shows destination's ShortDescription. Bare custom direction words are caught by CommandProcessor fallback (checks current room exits when verb is unknown).
 
 #### Emphasis
 
@@ -244,8 +265,8 @@ casting unsteady shadows on wet concrete.
 
 ### World Content
 
-**Sector:** test (6 rooms)
-**Rooms:** test_a00 (Starting Alley), test_a01 (Pipe Junction), test_a02 (Ventilation Shaft), test_a03 (Dumpster Nook), test_a04 (Fire Escape Landing), test_b00 (Neon Boulevard)
+**Sector:** test (8 rooms)
+**Rooms:** test_a00 (Starting Alley), test_a01 (Pipe Junction), test_a02 (Ventilation Shaft), test_a03 (Dumpster Nook), test_a04 (Fire Escape Landing), test_b00 (Neon Boulevard), test_c00 (Rooftop), test_d00 (Maintenance Tunnel)
 **Items:** none yet
 **NPCs:** none yet
 **Commands** (14): look, go, take, drop, inventory, talk, use, read, open, give, travel, exits, help, quit
@@ -259,6 +280,7 @@ casting unsteady shadows on wet concrete.
 - **Global room IDs**: `{sector}_{localId}` allows same local IDs in different sectors (e.g. `s7_a00` and `rim_a00` are distinct rooms).
 - **Text wrapping**: `TextFormatter.WordWrap()` wraps at 80 columns, preserves existing newlines, handles long words by forced break.
 - **Emphasis rendering**: `*text*` → colored in interactive mode, preserved in batch JSON. Simple toggle-on-asterisk approach.
+- **Custom exits (Additional Exits)**: Room files can define named exits (up, down, etc.) via `## Additional Exits` section. One-directional, same-sector, with mandatory name checksum. Two-pass loading: pass 1 finalizes names, pass 2 parses/validates exits. Bare custom directions handled by CommandProcessor fallback.
 - **Gated exits**: `Room.GatedExits` dictionary with `RequiresFlag` and `FailureMessage`. Checked by GoCommand. Not yet used in world content.
 - **Exit costs**: `Room.ExitCosts` dictionary mapping direction → credit cost. Not yet used in world content.
 - **ShowDescription flag**: `CommandResult.ShowDescription` controls detail level. `look` (no args) and `go` set it to `true`.
@@ -273,5 +295,5 @@ casting unsteady shadows on wet concrete.
 - No metro stations in current world content (travel command exists)
 - No equipment/wearable system
 - No save slot or multiple saves
-- Room file format only supports name/short/description (items, gates, costs, readables, spawn not yet in file format)
+- Room file format supports name/short/description/additional exits (items, gates, costs, readables, spawn not yet in file format)
 - No multi-sector world (only test sector loaded)

@@ -6,7 +6,7 @@ public static class MapParser
     {
         var lines = GetMapLines(mapText);
         if (lines.Count == 0)
-            throw new InvalidOperationException($"Sector '{sectorId}': map is empty.");
+            throw new WorldLoadException($"Sector '{sectorId}': map is empty.");
 
         var grid = ScanRooms(lines);
         ValidateNoDuplicates(sectorId, grid);
@@ -120,7 +120,7 @@ public static class MapParser
         foreach (var (_, localId) in grid.Values)
         {
             if (!seen.Add(localId))
-                throw new InvalidOperationException(
+                throw new WorldLoadException(
                     $"Sector '{sectorId}': duplicate room ID '{localId}'.");
         }
     }

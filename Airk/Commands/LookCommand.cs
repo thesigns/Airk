@@ -53,6 +53,17 @@ public sealed class LookCommand : ICommand
             return new CommandResult(true, $"There's nothing noteworthy to the {direction}.");
         }
 
+        // Check custom exit directions (up, down, etc.)
+        if (args.Length == 1)
+        {
+            var customDir = args[0].ToLowerInvariant();
+            if (room.Exits.TryGetValue(customDir, out var customTargetId))
+            {
+                var targetRoom = state.Rooms[customTargetId];
+                return new CommandResult(true, $"Looking {customDir}: {targetRoom.ShortDescription}");
+            }
+        }
+
         // Override descriptions based on state
         if (itemName == "package" && state.Flags.Contains("opened_package"))
         {

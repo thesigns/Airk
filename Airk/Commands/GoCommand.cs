@@ -6,7 +6,7 @@ public sealed class GoCommand : ICommand
 {
     public string Name => "go";
     public string[] Aliases => ["move", "walk", "n", "s", "e", "w", "north", "south", "east", "west"];
-    public string Description => "Move in a direction (north, south, east, west)";
+    public string Description => "Move in a direction";
 
     public CommandResult Execute(GameState state, string[] args)
     {
@@ -14,7 +14,7 @@ public sealed class GoCommand : ICommand
 
         if (args.Length == 0)
         {
-            return new CommandResult(false, "Go where? Specify a direction (north, south, east, west).");
+            return new CommandResult(false, "Go where? Type 'exits' to see available directions.");
         }
 
         direction = args[0].ToLowerInvariant();

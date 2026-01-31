@@ -7,6 +7,23 @@ public static partial class RoomFileParser
     [GeneratedRegex(@"^\*\*(\w+):\*\*(.*)$")]
     private static partial Regex FieldPattern();
 
+    [GeneratedRegex(@"^-\s+\*\*(\w+):\*\*\s+([a-z]\d{2})\s+\((.+)\)\s*$")]
+    private static partial Regex ExitEntryPattern();
+
+    private static readonly HashSet<string> ReservedWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Command names
+        "look", "go", "take", "drop", "inventory", "talk", "use", "read",
+        "open", "give", "travel", "exits", "help", "quit",
+        // Aliases
+        "l", "examine", "x", "move", "walk", "get", "grab", "pick",
+        "put", "discard", "i", "inv", "speak", "chat", "ask",
+        "activate", "hand", "offer", "unwrap", "ride", "?", "commands",
+        "exit", "q",
+        // Cardinal directions (come from MapParser grid)
+        "north", "south", "east", "west", "n", "s", "e", "w"
+    };
+
     public static void Apply(Room room, string fileText)
     {
         // Strip BOM
@@ -35,7 +52,7 @@ public static partial class RoomFileParser
             if (line.StartsWith("# "))
             {
                 if (name is not null)
-                    throw new InvalidOperationException(
+                    throw new WorldLoadException(
                         $"Room '{roomId}': multiple H1 headings found.");
                 name = line[2..].Trim();
             }
@@ -99,5 +116,65 @@ public static partial class RoomFileParser
     private static string JoinContent(List<string> lines)
     {
         return string.Join("\n", lines).Trim();
+    }
+
+    public static List<(string Direction, string LocalId, string ExpectedName)> ParseAdditionalExits(
+        string roomId, string text)
+    {
+        // Strip BOM
+        if (text.Length > 0 && text[0] == '\uFEFF')
+            text = text[1..];
+
+        var exits = new List<(string, string, string)>();
+        var seenDirections = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var lines = text.Split('\n');
+        var entryRegex = ExitEntryPattern();
+        bool inSection = false;
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.TrimEnd('\r');
+
+            if (!inSection)
+            {
+                if (line.StartsWith("## ") &&
+                    line[3..].Trim().Equals("Additional Exits", StringComparison.OrdinalIgnoreCase))
+                {
+                    inSection = true;
+                }
+                continue;
+            }
+
+            // End of section
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith("## "))
+                break;
+
+            var match = entryRegex.Match(line);
+            if (!match.Success)
+            {
+                throw new WorldLoadException(
+                    $"Room '{roomId}': invalid line in Additional Exits section: '{line}'");
+            }
+
+            var direction = match.Groups[1].Value.ToLowerInvariant();
+            var localId = match.Groups[2].Value;
+            var expectedName = match.Groups[3].Value.Trim();
+
+            if (ReservedWords.Contains(direction))
+            {
+                throw new WorldLoadException(
+                    $"Room '{roomId}': custom exit direction '{direction}' conflicts with a reserved command.");
+            }
+
+            if (!seenDirections.Add(direction))
+            {
+                throw new WorldLoadException(
+                    $"Room '{roomId}': duplicate custom exit direction '{direction}'.");
+            }
+
+            exits.Add((direction, localId, expectedName));
+        }
+
+        return exits;
     }
 }

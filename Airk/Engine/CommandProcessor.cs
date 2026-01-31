@@ -59,6 +59,14 @@ public sealed class CommandProcessor
 
         if (!_commands.TryGetValue(verb, out var command))
         {
+            // Check if bare word matches a custom exit in the current room
+            if (args.Length == 0)
+            {
+                var currentRoom = state.Rooms[state.CurrentRoomId];
+                if (currentRoom.Exits.ContainsKey(verb.ToLowerInvariant()))
+                    return _commands["go"].Execute(state, [verb]);
+            }
+
             return new CommandResult(false, $"Unknown command: '{verb}'. Type 'help' for a list of commands.");
         }
 
