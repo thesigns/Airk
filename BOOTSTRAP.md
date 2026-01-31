@@ -2,7 +2,7 @@
 
 ## Core Idea
 
-Airk is a **text-based console game** inspired by classic interactive fiction (e.g. Zork), with a **cyberpunk setting**, designed to be playable **both by humans and by AI agents**.
+Airk is a **text-based console game** inspired by classic MUDs, with a **cyberpunk setting**, designed to be playable **both by humans and by AI agents**.
 
 The same game logic must support two execution modes:
 - an interactive, human-facing mode
@@ -14,7 +14,12 @@ Both modes must behave identically in terms of game rules and outcomes.
 
 ## Game Genre and Tone
 
-- The game is a **text adventure** (interactive fiction).
+- The game is a **single-player MUD** — systemic, emergent, exploration-driven.
+- Key design pillars:
+  - **Systemic gameplay**: combat, stats, equipment, economy — mechanics that interact and create emergent situations.
+  - **Player freedom**: multiple approaches to problems, no forced linear path, sandbox.
+  - **Living world**: NPCs with behavior, respawning enemies, consequences for actions.
+  - **Character progression**: skills, leveling, builds.
 - Narrative, world, and mechanics must reflect **cyberpunk themes**: megacorporations, hackers, neon cities, surveillance, body augmentation, etc.
 - The game should be engaging, coherent, and replayable.
 - No omniscient narration or meta-knowledge is allowed.
