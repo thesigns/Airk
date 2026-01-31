@@ -9,10 +9,15 @@ public static partial class RoomFileParser
 
     public static void Apply(Room room, string fileText)
     {
-        var fields = ParseFields(fileText);
+        // Strip BOM
+        if (fileText.Length > 0 && fileText[0] == '\uFEFF')
+            fileText = fileText[1..];
 
-        if (fields.TryGetValue("name", out var name))
+        var name = ExtractName(room.Id, fileText);
+        if (name is not null)
             room.Name = name;
+
+        var fields = ParseFields(fileText);
 
         if (fields.TryGetValue("short", out var shortDesc))
             room.ShortDescription = shortDesc;
@@ -21,12 +26,25 @@ public static partial class RoomFileParser
             room.Description = desc;
     }
 
+    private static string? ExtractName(string roomId, string text)
+    {
+        string? name = null;
+        foreach (var rawLine in text.Split('\n'))
+        {
+            var line = rawLine.TrimEnd('\r');
+            if (line.StartsWith("# "))
+            {
+                if (name is not null)
+                    throw new InvalidOperationException(
+                        $"Room '{roomId}': multiple H1 headings found.");
+                name = line[2..].Trim();
+            }
+        }
+        return name;
+    }
+
     private static Dictionary<string, string> ParseFields(string text)
     {
-        // Strip BOM
-        if (text.Length > 0 && text[0] == '\uFEFF')
-            text = text[1..];
-
         var fields = new Dictionary<string, string>();
         var lines = text.Split('\n');
         var regex = FieldPattern();

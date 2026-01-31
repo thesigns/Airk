@@ -212,7 +212,7 @@ File: `{sectorId}_{localId}.md` (e.g. `test_a00.md`)
 **Optional** — if no file exists, room keeps MapParser defaults.
 
 ```markdown
-**name:** Starting Alley
+# Starting Alley
 
 **short:** Dead end alley with a flickering light.
 
@@ -223,16 +223,17 @@ casting unsteady shadows on wet concrete.
 ```
 
 **Format rules:**
-- Field = line starting with `**fieldname:**`
+- **Room name** = `# H1 heading` (exactly one allowed per file; multiple → parser error)
+- **Fields** = lines starting with `**fieldname:**`
 - Content = text after `:** ` on same line + subsequent non-empty lines
 - If nothing after `:**`, content starts from next line (field-name-only line skipped)
 - Content ends at: empty line, next field, or EOF
-- Everything outside fields = ignored (comments, markdown formatting)
+- Everything outside H1/fields = ignored (comments, markdown formatting)
 - Newlines in content are preserved (each line becomes a separate line in-game)
 
-**Supported fields:** `name`, `short`, `description`
+**Supported fields:** `short`, `description`
 
-**`RoomFileParser.Apply(room, fileText)`**: Parses fields, overrides Room properties. Room.Name/ShortDescription/Description use `set` (not `init`) to allow post-construction override.
+**`RoomFileParser.Apply(room, fileText)`**: Extracts name from H1, parses fields, overrides Room properties. Room.Name/ShortDescription/Description use `set` (not `init`) to allow post-construction override.
 
 #### Emphasis
 
