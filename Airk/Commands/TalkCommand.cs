@@ -58,9 +58,7 @@ public sealed class TalkCommand : ICommand
         }
 
         // Find the NPC
-        var npc = npcsHere.FirstOrDefault(n =>
-            n.Id.Equals(targetName, StringComparison.OrdinalIgnoreCase) ||
-            n.Name.Contains(targetName, StringComparison.OrdinalIgnoreCase));
+        var npc = state.FindNpcInRoom(targetName);
 
         if (npc is null)
         {

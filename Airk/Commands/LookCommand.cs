@@ -81,10 +81,7 @@ public sealed class LookCommand : ICommand
         }
 
         // Check NPCs in room
-        var npc = state.Npcs.Values.FirstOrDefault(n =>
-            n.RoomId == state.CurrentRoomId &&
-            (n.Id.Equals(itemName, StringComparison.OrdinalIgnoreCase) ||
-             n.Name.Contains(itemName, StringComparison.OrdinalIgnoreCase)));
+        var npc = state.FindNpcInRoom(itemName);
 
         if (npc is not null)
         {

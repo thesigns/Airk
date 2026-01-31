@@ -278,6 +278,7 @@ Player selects choices with `talk <npc> <number>`. Menu display does not advance
 
 ### Known Gaps (for future iterations)
 
+- No localization system (removed — all text is hardcoded English)
 - No combat system
 - Health stat tracked but never changes
 - Icarus facility interior not yet accessible (blast door blocks north exit at facility-gate). Access-card from Echo is a quest item for future use

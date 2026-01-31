@@ -36,10 +36,7 @@ public sealed class GiveCommand : ICommand
             return new CommandResult(false, $"You don't have a '{itemName}'.");
         }
 
-        var npc = state.Npcs.Values.FirstOrDefault(n =>
-            n.RoomId == state.CurrentRoomId &&
-            (n.Id.Equals(npcName, StringComparison.OrdinalIgnoreCase) ||
-             n.Name.Contains(npcName, StringComparison.OrdinalIgnoreCase)));
+        var npc = state.FindNpcInRoom(npcName);
 
         if (npc is null)
         {

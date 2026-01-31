@@ -16,6 +16,14 @@ public sealed class GameState
     public Dictionary<string, MetroStation> MetroStations { get; set; } = new();
     public string? LastMessage { get; set; }
 
+    public Npc? FindNpcInRoom(string input)
+    {
+        return Npcs.Values.FirstOrDefault(n =>
+            n.RoomId == CurrentRoomId &&
+            (n.Id.Equals(input, StringComparison.OrdinalIgnoreCase) ||
+             n.Name.Contains(input, StringComparison.OrdinalIgnoreCase)));
+    }
+
     public PlayerView Project()
     {
         var room = Rooms[CurrentRoomId];
