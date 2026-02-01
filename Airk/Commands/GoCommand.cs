@@ -1,5 +1,5 @@
+using Airk.Sharpex;
 using Airk.State;
-using Airk.World.MonkeyScript;
 
 namespace Airk.Commands;
 
@@ -37,9 +37,9 @@ public sealed class GoCommand : ICommand
             return new CommandResult(false, $"You can't go {direction} from here.");
         }
 
-        // MonkeyScript overrides default behavior for this exit
+        // Sharpex script overrides default behavior for this exit
         if (room.ExitScripts.TryGetValue(direction, out var script))
-            return Executor.Execute(state, script, direction);
+            return SharpexFunctions.Execute(state, script, direction);
 
         if (room.GatedExits.TryGetValue(direction, out var gate) &&
             !state.Flags.Contains(gate.RequiresFlag))

@@ -1,10 +1,13 @@
+using System.Text.RegularExpressions;
 using Airk.World;
-using Airk.World.MonkeyScript;
 
 namespace Airk.State;
 
-public static class WorldLoader
+public static partial class WorldLoader
 {
+    [GeneratedRegex(@"(?<=#go\s)([a-z]\d{2})(?=\s|$|"")")]
+    private static partial Regex GoReferencePattern();
+
     public static Dictionary<string, Room> LoadSector(string sectorId, string basePath)
     {
         var mapFile = Path.Combine(basePath, $"{sectorId}.md");
@@ -49,12 +52,7 @@ public static class WorldLoader
                 room.Exits[direction] = globalId;
 
                 if (scriptText.Length > 0)
-                {
-                    var tokens = Tokenizer.Tokenize(roomId, scriptText);
-                    ResolveGoTokens(tokens, sectorId, rooms, roomId);
-                    var ast = Parser.Parse(roomId, tokens);
-                    room.ExitScripts[direction] = ast;
-                }
+                    room.ExitScripts[direction] = ResolveGoReferences(scriptText, sectorId, rooms, roomId);
             }
         }
 
@@ -75,30 +73,23 @@ public static class WorldLoader
             foreach (var (direction, _, _, scriptText) in exits)
             {
                 if (scriptText.Length == 0) continue;
-
-                var tokens = Tokenizer.Tokenize(room.Id, scriptText);
-                ResolveGoTokens(tokens, sectorId, rooms, room.Id);
-                var ast = Parser.Parse(room.Id, tokens);
-                room.ExitScripts[direction] = ast;
+                room.ExitScripts[direction] = ResolveGoReferences(scriptText, sectorId, rooms, room.Id);
             }
         }
     }
 
-    private static void ResolveGoTokens(
-        List<Token> tokens, string sectorId, Dictionary<string, Room> rooms, string roomId)
+    private static string ResolveGoReferences(
+        string script, string sectorId, Dictionary<string, Room> rooms, string roomId)
     {
-        for (int i = 0; i < tokens.Count; i++)
+        return GoReferencePattern().Replace(script, match =>
         {
-            var token = tokens[i];
-            if (token.Type != TokenType.Action || token.Name != "go") continue;
-
-            var globalId = $"{sectorId}_{token.Argument}";
+            var localId = match.Groups[1].Value;
+            var globalId = $"{sectorId}_{localId}";
             if (!rooms.ContainsKey(globalId))
                 throw new WorldLoadException(
-                    $"Room '{roomId}': @go({token.Argument}) target does not exist in sector '{sectorId}'.");
-
-            tokens[i] = token with { Argument = globalId };
-        }
+                    $"Room '{roomId}': #go {localId} target does not exist in sector '{sectorId}'.");
+            return globalId;
+        });
     }
 
     private static string ExtractCodeBlock(string markdown, string sectorId)

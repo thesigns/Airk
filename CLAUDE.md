@@ -102,7 +102,7 @@ It is a **technical memory** for future iterations.
 
 ### Current State
 
-Data-driven world loading from markdown asset files. Test sector with 8 rooms. MonkeyScript engine for conditional logic on exits (and future systems). No NPCs, items, dialogue, or metro yet — those systems exist in code (commands, models) but have no world content.
+Data-driven world loading from markdown asset files. Test sector with 8 rooms. Sharpex scripting engine for conditional logic on exits (and future systems). No NPCs, items, dialogue, or metro yet — those systems exist in code (commands, models) but have no world content.
 
 ### Key Constraints from BOOTSTRAP.md
 
@@ -138,19 +138,16 @@ Program.cs                 Entry point, mode detection
 │   ├── PlayerView.cs      Projected player-visible state (output as JSON)
 │   ├── WorldBuilder.cs    Creates initial world (delegates to WorldLoader)
 │   └── WorldLoader.cs     Loads sector .md files, applies room definitions (two-pass)
+├── Sharpex/
+│   ├── Sharpex.cs         Sharpex scripting engine (external, single-file DSL)
+│   └── SharpexFunctions.cs Game-specific Sharpex functions (#go, #msg, #pay) + Execute wrapper
 ├── World/
 │   ├── Room.cs            Room + ExitGate
 │   ├── Npc.cs             NPC + DialogueLine structures
 │   ├── MetroStation.cs    Metro station data
 │   ├── MapParser.cs       Parses ASCII grid map from markdown code blocks
 │   ├── RoomFileParser.cs  Parses **field:** markdown format + Additional Exits for room definitions
-│   ├── WorldLoadException.cs  Custom exception for world/room parsing errors
-│   └── MonkeyScript/      General-purpose miniscript engine
-│       ├── Token.cs        TokenType enum + Token record
-│       ├── Tokenizer.cs    Script text → token list
-│       ├── Node.cs         AST node types (Action, And, Or, Conditional, Sequence)
-│       ├── Parser.cs       Recursive descent parser (tokens → AST)
-│       └── Executor.cs     Evaluates AST against GameState → CommandResult
+│   └── WorldLoadException.cs  Custom exception for world/room parsing errors
 ├── Persistence/
 │   └── SessionManager.cs  Load/save session.json
 ├── UI/
@@ -166,8 +163,8 @@ Program.cs                 Entry point, mode detection
 
 1. `Program.cs` determines mode from args
 2. `SessionManager.Load()` loads or creates `GameState`
-3. On new game: `WorldBuilder.CreateNewGame()` → `WorldLoader.LoadSector()` → `MapParser.Parse()` + pass 1: `RoomFileParser.Apply()` (names/descriptions) + pass 2: `RoomFileParser.ParseAdditionalExits()` (custom exits + MonkeyScript parsing)
-4. On existing session: `WorldBuilder.ReloadScripts(state)` re-parses MonkeyScript from .md files (scripts are `[JsonIgnore]`, not persisted in session.json)
+3. On new game: `WorldBuilder.CreateNewGame()` → `WorldLoader.LoadSector()` → `MapParser.Parse()` + pass 1: `RoomFileParser.Apply()` (names/descriptions) + pass 2: `RoomFileParser.ParseAdditionalExits()` (custom exits + Sharpex script extraction)
+4. On existing session: `WorldBuilder.ReloadScripts(state)` re-reads Sharpex scripts from .md files (scripts are `[JsonIgnore]`, not persisted in session.json)
 5. `GameEngine.Run()` loops (once in batch, repeatedly in interactive):
    - `IGameUI.ReadCommand()` gets input
    - `CommandProcessor.Execute()` routes to `ICommand`
@@ -230,7 +227,7 @@ against one wall. A single light flickers overhead,
 casting unsteady shadows on wet concrete.
 
 ## Additional Exits
-- **up:** c00 (Rooftop) @pay(10) ? @go(c00) @msg(Paid.) : @msg(No money.)
+- **up:** c00 (Rooftop) #pay 10 ? #go c00 #msg "Paid." : #msg "No money."
 - **down:** d00 (Maintenance Tunnel)
 ```
 
@@ -251,54 +248,46 @@ casting unsteady shadows on wet concrete.
 
 Optional `## Additional Exits` section in room files. Defines custom named exits (up, down, enter, climb, etc.) beyond the cardinal directions from the grid map.
 
-**Format:** `- **direction:** localId (Room Name) [optional MonkeyScript]`
+**Format:** `- **direction:** localId (Room Name) [optional Sharpex script]`
 
 **Rules:**
 - Direction = lowercase word, must not conflict with command names, aliases, or cardinal directions
 - Destination = local room ID `[a-z][0-9][0-9]` within the same sector
 - Room Name in parentheses = mandatory checksum; must match the destination room's actual Name
-- Optional MonkeyScript after the parentheses overrides default go behavior for this exit
+- Optional Sharpex script after the parentheses overrides default go behavior for this exit
 - Exits are **one-directional** — no automatic return exits; each room defines its own
 - Strict parser: reserved word collision, duplicate directions, or malformed lines → `WorldLoadException`
 
-**`RoomFileParser.ParseAdditionalExits(roomId, text)`**: Parses the section, returns list of `(direction, localId, expectedName, scriptText)`. Called by WorldLoader in pass 2 after all room names are finalized. WorldLoader validates destination existence and name match, then tokenizes/parses any script text into AST attached to `Room.ExitScripts`.
+**`RoomFileParser.ParseAdditionalExits(roomId, text)`**: Parses the section, returns list of `(direction, localId, expectedName, scriptText)`. Called by WorldLoader in pass 2 after all room names are finalized. WorldLoader validates destination existence and name match, resolves local IDs in `#go` references to global IDs, stores raw script string in `Room.ExitScripts`.
 
 **Behavior:** `up` or `go up` moves; `look up` shows destination's ShortDescription. Bare custom direction words are caught by CommandProcessor fallback (checks current room exits when verb is unknown).
 
-#### MonkeyScript
+#### Sharpex
 
-General-purpose miniscript engine. First use case: exit scripts. Designed for reuse in NPC dialogue, item interactions, room events, shop transactions, quest conditions, etc.
+Sharpex is an external, single-file behavioral scripting DSL for C#. Located in `Airk/Sharpex/Sharpex.cs`. Game-specific functions are in `Airk/Sharpex/SharpexFunctions.cs`.
 
-**Syntax:** `@function(argument)` — every action returns bool.
+**Syntax:** `#function arg1 arg2` — every function returns bool. Quoted strings for args with spaces: `#msg "Hello world"`.
 
 **Operators** (high → low precedence):
-- Space (AND): `@f1 @f2` — short-circuit, stops on first false
-- `|` (OR): `@f1 | @f2` — short-circuit, stops on first true
-- `? :` (conditional): `@cond ? @true : @false`
-- `>` (sequence): `@s1 > @s2` — always runs both, like `;`
+- Space (AND): `#f1 arg #f2 arg` — short-circuit, stops on first false
+- `|` (OR): `#f1 arg | #f2 arg` — short-circuit, stops on first true
+- `? :` (conditional): `#cond ? #true : #false`
+- `>` (sequence): `#s1 > #s2` — always runs both, returns last result
+- `~` (negation): `~func arg` — inverts result
 
-**Grammar:**
-```
-script    := statement ('>' statement)*
-statement := expr '?' expr ':' expr | expr
-expr      := term ('|' term)*
-term      := action+                        ← implicit AND
-action    := '@' name '(' arg ')'
-```
+**Current game functions** (defined in `SharpexFunctions.cs`):
+- `#go globalRoomId` — move player to room, always returns true. Local ID resolved to global ID at load time by `WorldLoader.ResolveGoReferences()`.
+- `#msg "text"` — display message text, always returns true
+- `#pay amount` — deduct credits if enough → true; not enough → false (no deduction)
 
-**Current actions:**
-- `@go(localId)` — move player to room, always returns true. Local ID resolved to global ID at load time.
-- `@msg(text)` — display message text, always returns true
-- `@pay(amount)` — deduct credits if enough → true; not enough → false (no deduction)
-
-**Example:** `@pay(10) ? @go(c00) @msg(You walk up the stairs.) : @msg(Not enough money to go up.)`
+**Example:** `#pay 10 ? #go c00 #msg "You walk up the stairs." : #msg "Not enough money to go up."`
 
 **Architecture:**
-- `Tokenizer.Tokenize(roomId, text)` → `List<Token>` — scans actions and operators
-- `Parser.Parse(roomId, tokens)` → `ScriptNode` — recursive descent AST
-- `Executor.Execute(state, script, direction)` → `CommandResult` — evaluates AST, tracks side effects (movement, messages)
+- `Sharpex.Eval(script)` — tokenizes, parses, and evaluates in one call; returns bool
+- Functions registered via `[Sharpex("name")]` attribute on static bool methods; auto-discovered by reflection at startup
+- `SharpexFunctions.Execute(state, script, direction)` — sets static context, calls `Sharpex.Eval()`, builds `CommandResult` from accumulated side effects (movement, messages)
 
-**Serialization:** `Room.ExitScripts` is `[JsonIgnore]`. Scripts are not persisted in session.json. On session load, `WorldBuilder.ReloadScripts(state)` re-parses all scripts from asset .md files. This is safe because scripts are pure functions of the asset files.
+**Serialization:** `Room.ExitScripts` is `Dictionary<string, string>` with `[JsonIgnore]`. Scripts stored as raw strings (with global IDs resolved). Not persisted in session.json. On session load, `WorldBuilder.ReloadScripts(state)` re-reads scripts from asset .md files.
 
 **Integration with GoCommand:** If `room.ExitScripts` has an entry for the direction, the script completely replaces default behavior (no GatedExits/ExitCosts check). Script controls movement, messaging, and success/failure.
 
@@ -327,9 +316,9 @@ action    := '@' name '(' arg ')'
 - **Text wrapping**: `TextFormatter.WordWrap()` wraps at 80 columns, preserves existing newlines, handles long words by forced break.
 - **Emphasis rendering**: `*text*` → colored in interactive mode, preserved in batch JSON. Simple toggle-on-asterisk approach.
 - **Custom exits (Additional Exits)**: Room files can define named exits (up, down, etc.) via `## Additional Exits` section. One-directional, same-sector, with mandatory name checksum. Two-pass loading: pass 1 finalizes names, pass 2 parses/validates exits + scripts. Bare custom directions handled by CommandProcessor fallback.
-- **MonkeyScript**: General-purpose miniscript with `@action(arg)` syntax, operators (AND, OR, conditional, sequence), and short-circuit evaluation. Decoupled from exits — evaluates AST against GameState. Not persisted in session.json (re-parsed from asset files on every load).
-- **Gated exits**: `Room.GatedExits` dictionary with `RequiresFlag` and `FailureMessage`. Checked by GoCommand. Not yet used in world content. Can be superseded by MonkeyScript for complex gating.
-- **Exit costs**: `Room.ExitCosts` dictionary mapping direction → credit cost. Can be superseded by `@pay()` in MonkeyScript.
+- **Sharpex scripting**: External single-file DSL (`Sharpex.cs`) with `#function arg` syntax. Functions registered via `[Sharpex]` attribute, auto-discovered by reflection. Game functions in `SharpexFunctions.cs` use static context pattern for GameState access. Scripts stored as raw strings in `Room.ExitScripts`, not persisted in session.json (re-read from asset files on every load).
+- **Gated exits**: `Room.GatedExits` dictionary with `RequiresFlag` and `FailureMessage`. Checked by GoCommand. Not yet used in world content. Can be superseded by Sharpex scripts for complex gating.
+- **Exit costs**: `Room.ExitCosts` dictionary mapping direction → credit cost. Can be superseded by `#pay` in Sharpex scripts.
 - **ShowDescription flag**: `CommandResult.ShowDescription` controls detail level. `look` (no args) and `go` set it to `true`.
 - **Cyan prompt**: Interactive mode prompt `>` rendered in cyan.
 
@@ -342,6 +331,6 @@ action    := '@' name '(' arg ')'
 - No metro stations in current world content (travel command exists)
 - No equipment/wearable system
 - No save slot or multiple saves
-- Room file format supports name/short/description/additional exits with MonkeyScript (items, gates, costs, readables, spawn not yet in file format)
-- MonkeyScript has only 3 actions (@go, @msg, @pay) — future: @flag, @require, @give, @take, etc.
+- Room file format supports name/short/description/additional exits with Sharpex scripts (items, gates, costs, readables, spawn not yet in file format)
+- Sharpex has only 3 game functions (#go, #msg, #pay) — future: #flag, #require, #give, #take, etc.
 - No multi-sector world (only test sector loaded)

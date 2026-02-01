@@ -8,5 +8,5 @@ A single light flickers overhead, casting unsteady shadows on wet concrete.
 
 ## Additional Exits
 
-- **up:** c00 (Rooftop) @pay(10) ? @go(c00) @msg(You walk up the stairs.) : @msg(Not enough money to go up.)
+- **up:** c00 (Rooftop) #pay 10 ? #go c00 #msg "You walk up the stairs." : #msg "Not enough money to go up."
 - **down:** d00 (Maintenance Tunnel)
